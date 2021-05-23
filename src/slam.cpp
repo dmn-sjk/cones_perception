@@ -48,7 +48,14 @@ public:
 
 	Slam(): nh("~"){
         //whole cloud
-		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>("/cloud", 2, &Slam::cloud_handler, this);
+        try{
+            tf_ls.waitForTransform("/map", "/cloud", ros::Time::now(), ros::Duration(3.0));
+        }
+        catch(tf::TransformException ex){
+            ROS_ERROR("/map -> cloud transform not found");
+        }
+
+        cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>("/cloud", 2, &Slam::cloud_handler, this);
 
 		aligned_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/aligned_cloud", 1);
         
@@ -58,8 +65,8 @@ public:
     boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> choose_registration(std::string reg){
         if (reg == "icp"){
             boost::shared_ptr<pcl::IterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>> icp(new pcl::IterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI>());
-            icp->setTransformationEpsilon(0.01);
-            icp->setMaximumIterations(64);
+            icp->setTransformationEpsilon(0.001); //0.01
+            icp->setMaximumIterations(256); //64
             icp->setMaxCorrespondenceDistance(2.5);
             icp->setUseReciprocalCorrespondences(false);
             return icp;
@@ -119,7 +126,7 @@ public:
         prev_trans = transform;
 
         auto keyframe_trans = slam::matrix_to_trans(stamp, keyframe_pose, world_frame_id, odom_frame_id);
-        tf_br.sendTransform(keyframe_trans);
+        //tf_br.sendTransform(keyframe_trans);
 
         double delta_trans = transform.block<3, 1>(0, 3).norm();
         double delta_angle = std::acos(Eigen::Quaternionf(transform.block<3, 3>(0, 0)).w());
@@ -155,8 +162,9 @@ public:
 
         //pcl::PointCloud<pcl::PointXYZI>::Ptr static_cloud(new pcl::PointCloud <pcl::PointXYZI>);
 
-        auto transform = match(cloud_msg->header.stamp, cloud_filtered);
-
+        Eigen::Matrix4f pose = match(cloud_msg->header.stamp, cloud_filtered);
+        geometry_msgs::TransformStamped odom_trans = slam::matrix_to_trans(cloud_msg->header.stamp, pose, "map", cloud_msg->header.frame_id);
+        tf_br.sendTransform(odom_trans);
         //pcl::transformPointCloud (*input_cloud, *static_cloud, transform);
 
         //sensor_msgs::PointCloud2 cloud_out;
