@@ -1,6 +1,6 @@
 # slam
 
-## Run cone detection in LIDAR point cloud
+## Detect cones in LIDAR point cloud
 ```bash
 rosrun slam cone_detection
 ```
