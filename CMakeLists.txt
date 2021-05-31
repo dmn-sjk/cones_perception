@@ -13,6 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   sensor_msgs
   tf
+  pcl_ros
+  pcl_conversions
 )
 
 find_package(PCL REQUIRED)
@@ -52,6 +54,7 @@ find_package(PCL REQUIRED)
 
 catkin_package(
   CATKIN_DEPENDS
+  pcl_conversions
 )
 
 ## Generate messages in the 'msg' folder

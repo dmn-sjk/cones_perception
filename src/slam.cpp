@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include "sensor_msgs/PointCloud2.h"
 #include <pcl_ros/point_cloud.h>
+#include <pcl_ros/transforms.h>
 #include <math.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/point_types.h>
@@ -9,6 +10,7 @@
 #include <iostream>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 
 #include <slam/utils.hpp>
 
@@ -20,13 +22,16 @@ private:
     ros::Subscriber cloud_sub;
     ros::Publisher cloud_pub;
     ros::Publisher aligned_cloud_pub;
+    // ros::Publisher filtered_cloud_pub;
+    ros::Publisher static_cloud_pub;
     tf::TransformBroadcaster tf_br;
     tf::TransformListener tf_ls;
 
     // frames
     std::string odom_frame_id = "lidar";
-    std::string world_frame_id = "map";
+    std::string world_frame_id = "world";
     std::string cloud_frame_id = "cloud";
+    std::string map_frame_id = "map";
     
     // odometry
     pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>::Ptr registration;
@@ -37,29 +42,37 @@ private:
     pcl::PointCloud<pcl::PointXYZI>::ConstPtr keyframe;
     pcl::PointCloud<pcl::PointXYZI>::Ptr prev_cloud = pcl::PointCloud<pcl::PointXYZI>::Ptr(new pcl::PointCloud <pcl::PointXYZI>);
 
+    pcl::Filter<pcl::PointXYZI>::Ptr outlier_removal_filter;
+
     // The minimum tranlational distance and rotation angle between keyframes.
     // If this value is zero, frames are always compared with the previous frame
     double keyframe_delta_trans = 0.25;
     double keyframe_delta_angle = 0.15;
     double keyframe_delta_time = 1.0;
+    double distance_near_thresh = 1.0;
+    double distance_far_thresh = 100.0;
 
 
 public:
 
 	Slam(): nh("~"){
         //whole cloud
-        try{
-            tf_ls.waitForTransform("/map", "/cloud", ros::Time::now(), ros::Duration(3.0));
-        }
-        catch(tf::TransformException ex){
-            ROS_ERROR("/map -> cloud transform not found");
-        }
+        tf_ls.waitForTransform("map", world_frame_id, ros::Time::now(), ros::Duration(3.0));
+        tf_ls.waitForTransform("map", cloud_frame_id, ros::Time::now(), ros::Duration(3.0));
+        tf_ls.waitForTransform("map", odom_frame_id, ros::Time::now(), ros::Duration(3.0));
 
         cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>("/cloud", 2, &Slam::cloud_handler, this);
 
+        static_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/static_cloud", 1);
+        // filtered_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_cloud", 1);
 		aligned_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/aligned_cloud", 1);
         
         registration = choose_registration("icp");
+
+        pcl::StatisticalOutlierRemoval<pcl::PointXYZI>::Ptr sor(new pcl::StatisticalOutlierRemoval<pcl::PointXYZI>());
+        sor->setMeanK(20);
+        sor->setStddevMulThresh(1.0);
+        outlier_removal_filter = sor;
 	}
 
     boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> choose_registration(std::string reg){
@@ -141,11 +154,58 @@ public:
             prev_trans.setIdentity();
         }
 
-        pcl::transformPointCloud (*cloud, *aligned, odom);
-        aligned->header.frame_id=odom_frame_id;
-        aligned_cloud_pub.publish(aligned);
+        // pcl::transformPointCloud (*cloud, *aligned, odom);
+        // aligned->header.frame_id=odom_frame_id;
+        // aligned_cloud_pub.publish(aligned);
 
         return odom;
+    }
+
+    pcl::PointCloud<pcl::PointXYZI>::ConstPtr distance_filter(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr& cloud) const {
+        pcl::PointCloud<pcl::PointXYZI>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZI>());
+        filtered->reserve(cloud->size());
+
+        std::copy_if(cloud->begin(), cloud->end(), std::back_inserter(filtered->points), [&](const pcl::PointXYZI& p) {
+        double d = p.getVector3fMap().norm();
+        return d > distance_near_thresh && d < distance_far_thresh;
+        });
+
+        filtered->width = filtered->size();
+        filtered->height = 1;
+        filtered->is_dense = false;
+
+        filtered->header = cloud->header;
+
+        return filtered;
+    }
+
+    pcl::PointCloud<pcl::PointXYZI>::ConstPtr outlier_removal(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr& cloud) const {
+
+        pcl::PointCloud<pcl::PointXYZI>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZI>());
+        outlier_removal_filter->setInputCloud(cloud);
+        outlier_removal_filter->filter(*filtered);
+        filtered->header = cloud->header;
+
+        return filtered;
+    }
+
+    void prefilter(pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud){
+        
+        tf::StampedTransform transform;
+        tf_ls.waitForTransform(odom_frame_id, cloud->header.frame_id, ros::Time(0), ros::Duration(2.0));
+        tf_ls.lookupTransform(odom_frame_id, cloud->header.frame_id, ros::Time(0), transform);
+
+        pcl::PointCloud<pcl::PointXYZI>::Ptr transformed(new pcl::PointCloud<pcl::PointXYZI>());
+        pcl_ros::transformPointCloud(*cloud, *transformed, transform);
+        transformed->header.frame_id = odom_frame_id;
+        transformed->header.stamp = cloud->header.stamp;
+        cloud = transformed;
+
+        pcl::PointCloud<pcl::PointXYZI>::ConstPtr filtered = distance_filter(cloud);
+        filtered = downsample(filtered);
+        filtered = outlier_removal(filtered);
+
+        //filtered_cloud_pub.publish(cloud);
     }
 
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
@@ -154,7 +214,11 @@ public:
 
         pcl::fromROSMsg(*cloud_msg, *input_cloud);
 
+        //prefilter(input_cloud);
+
         auto cloud_filtered = downsample(input_cloud);
+
+        //auto cloud_filtered = input_cloud;
 
         // if (prev_cloud->points.size() == 0){
         //     prev_cloud = cloud_filtered;
@@ -163,8 +227,9 @@ public:
         //pcl::PointCloud<pcl::PointXYZI>::Ptr static_cloud(new pcl::PointCloud <pcl::PointXYZI>);
 
         Eigen::Matrix4f pose = match(cloud_msg->header.stamp, cloud_filtered);
-        geometry_msgs::TransformStamped odom_trans = slam::matrix_to_trans(cloud_msg->header.stamp, pose, "map", cloud_msg->header.frame_id);
+        geometry_msgs::TransformStamped odom_trans = slam::matrix_to_trans(cloud_msg->header.stamp, pose, world_frame_id, odom_frame_id);
         tf_br.sendTransform(odom_trans);
+
         //pcl::transformPointCloud (*input_cloud, *static_cloud, transform);
 
         //sensor_msgs::PointCloud2 cloud_out;
