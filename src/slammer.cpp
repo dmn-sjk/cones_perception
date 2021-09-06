@@ -9,8 +9,7 @@
 #include <iostream>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
-
-#include <slam/utils.hpp>
+#include <perception_handling/utils.hpp>
 
 
 class Slam{
@@ -125,7 +124,9 @@ public:
         prev_time = stamp;
         prev_trans = transform;
 
-        auto keyframe_trans = slam::matrix_to_trans(stamp, keyframe_pose, world_frame_id, odom_frame_id);
+        //auto keyframe_trans = slam::matrix_to_trans(stamp, keyframe_pose, world_frame_id, odom_frame_id);
+        geometry_msgs::TransformStamped a;
+        auto keyframe_trans = a;
         //tf_br.sendTransform(keyframe_trans);
 
         double delta_trans = transform.block<3, 1>(0, 3).norm();
@@ -163,7 +164,7 @@ public:
         //pcl::PointCloud<pcl::PointXYZI>::Ptr static_cloud(new pcl::PointCloud <pcl::PointXYZI>);
 
         Eigen::Matrix4f pose = match(cloud_msg->header.stamp, cloud_filtered);
-        geometry_msgs::TransformStamped odom_trans = slam::matrix_to_trans(cloud_msg->header.stamp, pose, "map", cloud_msg->header.frame_id);
+        geometry_msgs::TransformStamped odom_trans = perception_handling::matrix_to_trans(cloud_msg->header.stamp, pose, "map", cloud_msg->header.frame_id);
         tf_br.sendTransform(odom_trans);
         //pcl::transformPointCloud (*input_cloud, *static_cloud, transform);
 
@@ -180,10 +181,6 @@ public:
         //cloud_pub.publish(cloud_out);
 
         //prev_cloud = input_cloud;
-	}
-
-	float euclidan_dist(float x, float y, float z){
-		return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
 	}
 };
 

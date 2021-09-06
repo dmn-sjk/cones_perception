@@ -4,10 +4,12 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <perception_handling/utils.hpp>
 
-namespace slam{
+namespace perception_handling {
 
-    static geometry_msgs::TransformStamped matrix_to_trans(const ros::Time &stamp, const Eigen::Matrix4f& matrix, const std::string& frame_id, const std::string& child_frame_id){
+    geometry_msgs::TransformStamped matrix_to_trans(const ros::Time &stamp, const Eigen::Matrix4f &matrix,
+                                                        const std::string &frame_id, const std::string &child_frame_id) {
         Eigen::Quaternionf quat(matrix.block<3, 3>(0, 0));
         quat.normalize();
         geometry_msgs::Quaternion rotation;
@@ -26,6 +28,10 @@ namespace slam{
         transform.transform.rotation = rotation;
 
         return transform;
+    }
+
+    float euclidan_dist(float x, float y, float z) {
+        return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
     }
 
 }
