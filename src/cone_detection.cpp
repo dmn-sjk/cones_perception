@@ -142,7 +142,7 @@ public:
         pcl::toROSMsg(*single_cone_cloud, single_cone_msg);
 
 		color_srv.request.single_cone_cloud = single_cone_msg;
-
+		
 		if (color_srv_client.call(color_srv)) {
 			color = static_cast<perception_handling::Color>(color_srv.response.color);
 			ROS_INFO("Color: %i", (int)color);
@@ -152,8 +152,6 @@ public:
 
 		return color;
 	}
-
-
 };
 
 

@@ -19,10 +19,6 @@ find_package(PCL REQUIRED)
 ## Declare ROS messages, services and actions ##
 ################################################
 
-add_message_files(
-  FILES
-  Color.msg
-)
 
 ## Generate services in the 'srv' folder
 add_service_files(
@@ -32,7 +28,6 @@ add_service_files(
 
 generate_messages(
   DEPENDENCIES
-  std_msgs
   sensor_msgs
 )
 
@@ -62,12 +57,10 @@ target_link_libraries(perception_handling
   ${PCL_LIBRARIES}
 )
 
-
 add_executable(cone_detection src/cone_detection.cpp)
 add_executable(ground_removal src/ground_removal.cpp)
 add_executable(slam_run src/slammer.cpp)
 add_executable(color_classifier_server src/color_classifier_server.cpp)
-
 
 target_link_libraries(cone_detection
   perception_handling
