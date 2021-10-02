@@ -14,25 +14,38 @@
 
 class ConeDetector{
 private:
+
+	std::string frame_id = "velodyne"; // "cloud"
+	std::string input_cloud_topic = "/velodyne_points"; // "/cloud"
+	std::string cones_topic = "/cones_cloud";
+	std::string color_classifier_srv_name = "/color_classifier";
+
 	float cone_width = 0.228;
 	float cone_height = 0.325;
-
 	float lidar_hor_res = 0.25; //degrees
 	float lidar_ver_res = 7.5;
 
-public:
+	uint8_t distance_treshold_max = 6; // 12
+	float distance_treshold_min = 1; // 0.7
+	float level_threshold = -0.09; // -0.5
+	uint8_t angle_threshold = 160; // 100
 
-	ConeDetector(): nh("~"){
-		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>("/cloud", 2, &ConeDetector::cloud_handler, this);
-		cones_pub = nh.advertise<sensor_msgs::PointCloud2>("/cones_cloud", 1);
-		color_srv_client = nh.serviceClient<slam::ClassifyColorSrv>("/color_classifier");
-	}
+	uint8_t min_cluster_size = 3; // 3
+	uint16_t max_cluster_size = 400; // 50
 
 	ros::NodeHandle nh;
     ros::Subscriber cloud_sub;
     ros::Publisher cones_pub;
 	ros::ServiceClient color_srv_client;
 	slam::ClassifyColorSrv color_srv;
+
+public:
+
+	ConeDetector(): nh("~"){
+		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(input_cloud_topic, 2, &ConeDetector::cloud_handler, this);
+		cones_pub = nh.advertise<sensor_msgs::PointCloud2>(cones_topic, 1);
+		color_srv_client = nh.serviceClient<slam::ClassifyColorSrv>(color_classifier_srv_name);
+	}
 
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
 
@@ -68,12 +81,22 @@ public:
         cones_pub.publish(cones_cloud);
 	}
 
-	void filter_points_position(pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud){
-        cloud->points.erase(std::remove_if(cloud->points.begin(), cloud->points.end(),
-            [&](pcl::PointXYZI p){return p.z < -0.5 or perception_handling::euclidan_dist(p.x, p.y, p.z) > 12 or
-			perception_handling::euclidan_dist(p.x, p.y, p.z) < 0.7 or -10 * M_PI / 18 >= atan2(p.y, p.x) or
-			atan2(p.y, p.x) >= 10 * M_PI / 18;}), cloud->points.end());
-     }
+	void filter_points_position(pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud)
+	{
+		cloud->points.erase(std::remove_if(cloud->points.begin(), cloud->points.end(),
+										   [&](pcl::PointXYZI p)
+										   {
+											   // level
+											   return p.z < level_threshold or
+													  // dist
+													  perception_handling::euclidan_dist(p.x, p.y, p.z) > distance_treshold_max or
+													  perception_handling::euclidan_dist(p.x, p.y, p.z) < distance_treshold_min or
+													  // angle
+													  -angle_threshold * M_PI / 180 >= atan2(p.y, p.x) or
+													  atan2(p.y, p.x) >= angle_threshold * M_PI / 180;
+										   }),
+							cloud->points.end());
+	}
 
 	std::vector<pcl::PointIndices> euclidan_cluster(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud){
 		pcl::search::KdTree<pcl::PointXYZI>::Ptr kdtree (new pcl::search::KdTree<pcl::PointXYZI>);
@@ -81,14 +104,14 @@ public:
 
         std::vector<pcl::PointIndices> cluster_indices;
 	  	pcl::EuclideanClusterExtraction<pcl::PointXYZI> ec;
-	  	ec.setClusterTolerance (sqrt(pow(this->cone_height, 2) + pow(this->cone_width / 2, 2))); 
-	  	ec.setMinClusterSize (3);
-	  	ec.setMaxClusterSize (50);
-	  	ec.setSearchMethod (kdtree);
-	  	ec.setInputCloud (cloud);
-	  	ec.extract (cluster_indices);
+		ec.setClusterTolerance(sqrt(pow(this->cone_height, 2) + pow(this->cone_width, 2)));
+		ec.setMinClusterSize(min_cluster_size);
+		ec.setMaxClusterSize(max_cluster_size);
+		ec.setSearchMethod(kdtree);
+		ec.setInputCloud(cloud);
+		ec.extract(cluster_indices);
 
-        return cluster_indices;
+		return cluster_indices;
     }
 
 	pcl::PointCloud<pcl::PointXYZI>::Ptr downsample(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud){
@@ -140,6 +163,8 @@ public:
 		sensor_msgs::PointCloud2 single_cone_msg;
 
         pcl::toROSMsg(*single_cone_cloud, single_cone_msg);
+
+		single_cone_msg.header.frame_id = frame_id;
 
 		color_srv.request.single_cone_cloud = single_cone_msg;
 		

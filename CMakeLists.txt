@@ -85,3 +85,7 @@ target_link_libraries(color_classifier_server
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 )
+
+catkin_install_python(PROGRAMS scripts/color_classifier_server.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
