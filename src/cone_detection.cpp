@@ -9,7 +9,7 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <perception_handling/utils.hpp>
 #include <perception_handling/color_classifier.hpp>
-#include "slam/ClassifyColorSrv.h"
+#include "cones_perception/ClassifyColorSrv.h"
 
 
 class ConeDetector{
@@ -37,14 +37,14 @@ private:
     ros::Subscriber cloud_sub;
     ros::Publisher cones_pub;
 	ros::ServiceClient color_srv_client;
-	slam::ClassifyColorSrv color_srv;
+	cones_perception::ClassifyColorSrv color_srv;
 
 public:
 
 	ConeDetector(): nh("~"){
 		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(input_cloud_topic, 2, &ConeDetector::cloud_handler, this);
 		cones_pub = nh.advertise<sensor_msgs::PointCloud2>(cones_topic, 1);
-		color_srv_client = nh.serviceClient<slam::ClassifyColorSrv>(color_classifier_srv_name);
+		color_srv_client = nh.serviceClient<cones_perception::ClassifyColorSrv>(color_classifier_srv_name);
 	}
 
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){

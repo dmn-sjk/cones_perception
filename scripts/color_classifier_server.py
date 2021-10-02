@@ -2,7 +2,7 @@
 
 from __future__ import print_function
 
-from slam.srv import ClassifyColorSrv, ClassifyColorSrvResponse
+from cones_perception.srv import ClassifyColorSrv, ClassifyColorSrvResponse
 import pcl
 from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2

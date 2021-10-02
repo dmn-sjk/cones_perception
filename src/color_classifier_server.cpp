@@ -1,9 +1,9 @@
 #include "ros/ros.h"
 #include <perception_handling/color_classifier.hpp>
-#include "slam/ClassifyColorSrv.h"
+#include "cones_perception/ClassifyColorSrv.h"
 
-bool ClassifyColor(slam::ClassifyColorSrv::Request &req,
-                   slam::ClassifyColorSrv::Response &res) {
+bool ClassifyColor(cones_perception::ClassifyColorSrv::Request &req,
+                   cones_perception::ClassifyColorSrv::Response &res) {
 
     perception_handling::Color color;
 
