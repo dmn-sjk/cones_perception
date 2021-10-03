@@ -50,12 +50,16 @@ public:
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud(new pcl::PointCloud <pcl::PointXYZI>);
+		pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_copy(new pcl::PointCloud <pcl::PointXYZI>);
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
 
         pcl::fromROSMsg(*cloud_msg, *input_cloud);
 
 		int cloud_size = input_cloud->points.size();
+		
+		pcl::copyPointCloud(*input_cloud, *input_cloud_copy);
 
+		// TODO: make filter function return filtered cloud, so there will be no need to copy input
 		// Deleting points too far away, too close and limiting horizontal FoV
 		filter_points_position(input_cloud);
 		
@@ -68,7 +72,7 @@ public:
 
 	  	pcl::PointCloud<pcl::PointXYZI>::Ptr centroid_cloud (new pcl::PointCloud<pcl::PointXYZI>);
 		
-		centroid_cloud = get_centroid_cloud(cloud_filtered, cluster_indices);
+		centroid_cloud = get_centroid_cloud(input_cloud_copy, cloud_filtered, cluster_indices);
 
         sensor_msgs::PointCloud2 cones_cloud;
         
@@ -114,6 +118,24 @@ public:
 		return cluster_indices;
     }
 
+	pcl::PointCloud<pcl::PointXYZI>::Ptr get_reconstructed_cone(const pcl::PointXYZI cone_center, const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud){
+        pcl::PointCloud<pcl::PointXYZI>::Ptr reconstructed_cone(new pcl::PointCloud <pcl::PointXYZI>);
+		pcl::PointXYZI p;
+
+		for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = cloud->points.begin(); it != cloud->points.end(); it++) {
+			if ((cone_center.x + (cone_width / 1.5) >= it->x && cone_center.x - (cone_width / 1.5) <= it->x) &&
+				(cone_center.y + (cone_width / 1.5) >= it->y && cone_center.y - (cone_width / 1.5) <= it->y)) {
+					p.x = it->x;
+					p.y = it->y;
+					p.z = it->z;
+					p.intensity = it->intensity;
+					reconstructed_cone->push_back(p);
+			}
+		}
+
+        return reconstructed_cone;
+    }
+
 	pcl::PointCloud<pcl::PointXYZI>::Ptr downsample(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud){
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
         pcl::VoxelGrid<pcl::PointXYZI> vg;
@@ -124,9 +146,12 @@ public:
         return cloud_filtered;
     }
 
-	pcl::PointCloud<pcl::PointXYZI>::Ptr get_centroid_cloud(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud, std::vector<pcl::PointIndices> cluster_indices) {
+	pcl::PointCloud<pcl::PointXYZI>::Ptr get_centroid_cloud(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &whole_cloud,
+															const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &filtered_cloud,
+															std::vector<pcl::PointIndices> cluster_indices) {
 		pcl::PointCloud<pcl::PointXYZI>::Ptr centroid_cloud (new pcl::PointCloud<pcl::PointXYZI>);
-		pcl::PointCloud<pcl::PointXYZI>::Ptr single_cone_cloud (new pcl::PointCloud<pcl::PointXYZI>);
+		//pcl::PointCloud<pcl::PointXYZI>::Ptr single_cone_cloud_filtered (new pcl::PointCloud<pcl::PointXYZI>);
+		pcl::PointCloud<pcl::PointXYZI>::Ptr single_cone_cloud_reconstruct (new pcl::PointCloud<pcl::PointXYZI>);
 
         for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
 		{
@@ -134,19 +159,20 @@ public:
 			int j = 0;
 			float x, y = 0.0;
 			for (const auto& idx : it->indices){
-				single_cone_cloud->push_back((*cloud)[idx]);
-				x += (*cloud)[idx].x;
-				y += (*cloud)[idx].y;
+				//single_cone_cloud_filtered->push_back((*filtered_cloud)[idx]);
+				x += (*filtered_cloud)[idx].x;
+				y += (*filtered_cloud)[idx].y;
 				j++;
 			}
-
-			get_color(single_cone_cloud);
-			single_cone_cloud->clear();
 
 			p.x = x / j;
 			p.y = y / j;
 			p.z = 0.0;
 			p.intensity = 1.0;
+
+			single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
+			get_color(single_cone_cloud_reconstruct);
+			single_cone_cloud_reconstruct->clear();
 
 			centroid_cloud->push_back(p);
 
@@ -156,7 +182,7 @@ public:
 		}
 
 		return centroid_cloud;
-    }
+	}
 
 	perception_handling::Color get_color(pcl::PointCloud<pcl::PointXYZI>::Ptr &single_cone_cloud) {
 		perception_handling::Color color;
