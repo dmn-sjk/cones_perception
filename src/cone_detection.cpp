@@ -25,13 +25,13 @@ private:
 	float lidar_hor_res = 0.25; //degrees
 	float lidar_ver_res = 7.5;
 
-	uint8_t distance_treshold_max = 6; // 12
-	float distance_treshold_min = 1; // 0.7
-	float level_threshold = -0.09; // -0.5
-	uint8_t angle_threshold = 160; // 100
+	uint8_t distance_treshold_max = 12;
+	float distance_treshold_min = 0.7;
+	float level_threshold = -0.5;
+	uint8_t angle_threshold = 100;
 
-	uint8_t min_cluster_size = 3; // 3
-	uint16_t max_cluster_size = 400; // 50
+	uint8_t min_cluster_size = 3;
+	uint16_t max_cluster_size = 50;
 
 	ros::NodeHandle nh;
     ros::Subscriber cloud_sub;
