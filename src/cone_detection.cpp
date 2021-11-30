@@ -15,8 +15,8 @@
 class ConeDetector{
 private:
 
-	std::string frame_id = "velodyne"; // "cloud"
-	std::string input_cloud_topic = "/velodyne_points"; // "/cloud"
+	std::string frame_id = "cloud";
+	std::string input_cloud_topic = "/cloud";
 	std::string cones_topic = "/cones_cloud";
 	std::string color_classifier_srv_name = "/color_classifier";
 
@@ -170,9 +170,10 @@ public:
 			p.z = 0.0;
 			p.intensity = 1.0;
 
-			single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
-			get_color(single_cone_cloud_reconstruct);
-			single_cone_cloud_reconstruct->clear();
+			/* for color classification */
+			// single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
+			// get_color(single_cone_cloud_reconstruct);
+			// single_cone_cloud_reconstruct->clear();
 
 			centroid_cloud->push_back(p);
 
@@ -196,7 +197,7 @@ public:
 		
 		if (color_srv_client.call(color_srv)) {
 			color = static_cast<perception_handling::Color>(color_srv.response.color);
-			ROS_INFO("Color: %i", (int)color);
+			//ROS_INFO("Color: %i", (int)color);
 		} else {
 			ROS_ERROR("Failed to call service");
 		}

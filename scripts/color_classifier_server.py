@@ -42,9 +42,9 @@ class ColorClassifier:
         #     row['z'].append(p[2])
         #     row['intensity'].append(p[3])
 
-        # color = input("Choose color (0 - not sure, 1 - yellow, 2 - blue, 3 - orange):\n")
+        # color = int(input("Choose color (0 - not sure, 1 - yellow, 2 - blue, 3 - orange):\n"))
 
-        # if not color == '0':
+        # if not color == 0:
         #     row['color'] = color
 
         #     self.df = self.df.append(row, ignore_index=True)

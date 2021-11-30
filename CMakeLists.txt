@@ -59,16 +59,9 @@ target_link_libraries(perception_handling
 
 add_executable(cone_detection src/cone_detection.cpp)
 add_executable(ground_removal src/ground_removal.cpp)
-add_executable(slam_run src/slammer.cpp)
 add_executable(color_classifier_server src/color_classifier_server.cpp)
 
 target_link_libraries(cone_detection
-  perception_handling
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-)
-
-target_link_libraries(slam_run
   perception_handling
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
@@ -88,4 +81,9 @@ target_link_libraries(color_classifier_server
 
 catkin_install_python(PROGRAMS scripts/color_classifier_server.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY launch/
+   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+   FILES_MATCHING PATTERN "*.launch"
 )
