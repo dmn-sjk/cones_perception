@@ -17,6 +17,7 @@ private:
 
 	std::string frame_id = "cloud";
 	std::string input_cloud_topic = "/cloud";
+	// std::string input_cloud_topic = "/velodyne_points";
 	std::string cones_topic = "/cones_cloud";
 	std::string color_classifier_srv_name = "/color_classifier";
 
@@ -25,18 +26,29 @@ private:
 	float lidar_hor_res = 0.25; //degrees
 	float lidar_ver_res = 7.5;
 
-	uint8_t distance_treshold_max = 12;
-	float distance_treshold_min = 0.7;
-	float level_threshold = -0.5;
-	uint8_t angle_threshold = 100;
+	// for our lidar
+	// uint8_t distance_treshold_max = 12;
+	// float distance_treshold_min = 0.7;
+	// float level_threshold = -0.5;
+	// uint8_t angle_threshold = 100;
+
+	// uint8_t min_cluster_size = 3;
+	// uint16_t max_cluster_size = 50;
+
+	// for fsai rosbag
+	uint8_t distance_treshold_max = 6;
+	float distance_treshold_min = 1;
+	float level_threshold = -0.09;
+	uint8_t angle_threshold = 160;
 
 	uint8_t min_cluster_size = 3;
-	uint16_t max_cluster_size = 50;
+	uint16_t max_cluster_size = 400;
 
 	ros::NodeHandle nh;
     ros::Subscriber cloud_sub;
     ros::Publisher cones_pub;
 	ros::ServiceClient color_srv_client;
+
 	cones_perception::ClassifyColorSrv color_srv;
 
 public:
@@ -45,6 +57,7 @@ public:
 		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(input_cloud_topic, 2, &ConeDetector::cloud_handler, this);
 		cones_pub = nh.advertise<sensor_msgs::PointCloud2>(cones_topic, 1);
 		color_srv_client = nh.serviceClient<cones_perception::ClassifyColorSrv>(color_classifier_srv_name);
+	
 	}
 
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
@@ -83,6 +96,10 @@ public:
 		cones_cloud.fields = cloud_msg->fields;
 
         cones_pub.publish(cones_cloud);
+	}
+
+	void wait_till_color_classifier_ready() {
+		color_srv_client.waitForExistence();
 	}
 
 	void filter_points_position(pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud)
@@ -140,7 +157,7 @@ public:
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
         pcl::VoxelGrid<pcl::PointXYZI> vg;
         vg.setInputCloud(cloud);
-        vg.setLeafSize(0.04f, 0.04f, 0.05f);
+        vg.setLeafSize(0.04f, 075.04f, 0.05f);
         vg.filter(*cloud_filtered);
 
         return cloud_filtered;
@@ -168,12 +185,11 @@ public:
 			p.x = x / j;
 			p.y = y / j;
 			p.z = 0.0;
-			p.intensity = 1.0;
 
-			/* for color classification */
-			// single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
-			// get_color(single_cone_cloud_reconstruct);
-			// single_cone_cloud_reconstruct->clear();
+			/* color classification */
+			single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
+			p.intensity = perception_handling::colors_to_intensities[get_color(single_cone_cloud_reconstruct)];
+			single_cone_cloud_reconstruct->clear();
 
 			centroid_cloud->push_back(p);
 
@@ -197,8 +213,9 @@ public:
 		
 		if (color_srv_client.call(color_srv)) {
 			color = static_cast<perception_handling::Color>(color_srv.response.color);
-			//ROS_INFO("Color: %i", (int)color);
 		} else {
+			// unknown
+			color = static_cast<perception_handling::Color>(0);
 			ROS_ERROR("Failed to call service");
 		}
 
@@ -211,6 +228,7 @@ int main(int argc, char* argv[])
 {
 	ros::init(argc, argv, "cone_detector");
   	ConeDetector detector;
+	detector.wait_till_color_classifier_ready();
 	ROS_INFO("Ready to detect cones.");
     ros::spin();
 

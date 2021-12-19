@@ -9,7 +9,7 @@ bool ClassifyColor(cones_perception::ClassifyColorSrv::Request &req,
 
     // TODO: color classification
 
-    color = perception_handling::Color::kRed;
+    color = perception_handling::Color::kYellow;
 
     res.color = static_cast<uint8_t>(color);
 
