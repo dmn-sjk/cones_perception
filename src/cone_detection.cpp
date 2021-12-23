@@ -16,8 +16,8 @@ class ConeDetector{
 private:
 
 	std::string frame_id = "cloud";
-	std::string input_cloud_topic = "/cloud";
-	// std::string input_cloud_topic = "/velodyne_points";
+	// std::string input_cloud_topic = "/cloud";
+	std::string input_cloud_topic = "/velodyne_points";
 	std::string cones_topic = "/cones_cloud";
 	std::string color_classifier_srv_name = "/color_classifier";
 
