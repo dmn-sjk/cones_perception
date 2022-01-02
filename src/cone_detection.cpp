@@ -42,7 +42,10 @@ private:
 	uint8_t angle_threshold = 160;
 
 	uint8_t min_cluster_size = 3;
-	uint16_t max_cluster_size = 400;
+	uint16_t max_cluster_size = 500;
+
+
+	float cones_recognition_dist_theshold = 0.5;
 
 	ros::NodeHandle nh;
     ros::Subscriber cloud_sub;
@@ -50,6 +53,7 @@ private:
 	ros::ServiceClient color_srv_client;
 
 	cones_perception::ClassifyColorSrv color_srv;
+	pcl::PointCloud<pcl::PointXYZI>::Ptr prev_centroid_cloud;
 
 public:
 
@@ -110,8 +114,8 @@ public:
 											   // level
 											   return p.z < level_threshold or
 													  // dist
-													  perception_handling::euclidan_dist(p.x, p.y, p.z) > distance_treshold_max or
-													  perception_handling::euclidan_dist(p.x, p.y, p.z) < distance_treshold_min or
+													  perception_handling::euclidan_dist(p.x, p.y, p.z, 0, 0, 0) > distance_treshold_max or
+													  perception_handling::euclidan_dist(p.x, p.y, p.z, 0, 0, 0) < distance_treshold_min or
 													  // angle
 													  -angle_threshold * M_PI / 180 >= atan2(p.y, p.x) or
 													  atan2(p.y, p.x) >= angle_threshold * M_PI / 180;
@@ -186,10 +190,24 @@ public:
 			p.y = y / j;
 			p.z = 0.0;
 
-			/* color classification */
-			single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
-			p.intensity = perception_handling::colors_to_intensities[get_color(single_cone_cloud_reconstruct)];
-			single_cone_cloud_reconstruct->clear();
+
+			bool need_color = true;
+
+			if (prev_centroid_cloud != NULL) {
+				for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = prev_centroid_cloud->points.begin(); it != prev_centroid_cloud->points.end(); it++) {
+					if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it->x, it->y, it->z) < cones_recognition_dist_theshold)
+								&& (it->intensity != perception_handling::colors_to_intensities[perception_handling::kUnknownColor])) {
+						p.intensity = it->intensity;
+						need_color = false;
+					}
+				}
+			}
+
+			if (need_color) {
+				/* color classification */
+				single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
+				p.intensity = perception_handling::colors_to_intensities[get_color(single_cone_cloud_reconstruct)];
+			}
 
 			centroid_cloud->push_back(p);
 
@@ -197,6 +215,8 @@ public:
 			x = 0.0;
 			y = 0.0;
 		}
+
+		prev_centroid_cloud = centroid_cloud;
 
 		return centroid_cloud;
 	}
