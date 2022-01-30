@@ -1,7 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
  
-    <node pkg="cones_perception" type="cone_detection" name="cone_detection" output="screen"/>
+    <node pkg="cones_perception" type="cone_detection" name="cone_detection" output="screen">
+        <param name="cones_frame_id" type="str" value="cloud"/>
+        <param name="cones_topic" type="str" value="/cones_cloud"/>
+        <param name="color_classifier_srv_name" type="str" value="/color_classifier"/>
+        <param name="intensity_in_cloud" type="bool" value="true"/>
+        <param name="classify_colors" type="bool" value="false"/>
+
+        <param name="cones_matching_dist_theshold" type="double" value="0.5"/>
+
+        <!-- for our rosbags -->
+        <!-- <param name="input_cloud_topic" type="str" value="/cloud"/>
+        <param name="distance_treshold_max" type="double" value="12.0"/>
+        <param name="distance_treshold_min" type="double" value="0.7"/>
+        <param name="level_threshold" type="double" value="-0.5"/>
+        <param name="angle_threshold" type="double" value="100.0"/>
+        <param name="min_cluster_size" type="int" value="3"/>
+        <param name="max_cluster_size" type="int" value="50"/> -->
+
+        <!-- for fsai rosbag -->
+        <param name="input_cloud_topic" type="str" value="/velodyne_points"/>
+        <param name="distance_treshold_max" type="double" value="6.0"/>
+        <param name="distance_treshold_min" type="double" value="1.0"/>
+        <param name="level_threshold" type="double" value="-0.09"/>
+        <param name="angle_threshold" type="double" value="160.0"/>
+        <param name="min_cluster_size" type="int" value="3"/>
+        <param name="max_cluster_size" type="int" value="500"/>
+    </node>
+
     <node pkg="cones_perception" type="color_classifier_server.py" name="color_classifier_server" output="screen"/>
 
     <!-- Rviz visualization-->

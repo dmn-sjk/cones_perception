@@ -15,37 +15,21 @@
 class ConeDetector{
 private:
 
-	std::string frame_id = "cloud";
-	// std::string input_cloud_topic = "/cloud";
-	std::string input_cloud_topic = "/velodyne_points";
-	std::string cones_topic = "/cones_cloud";
-	std::string color_classifier_srv_name = "/color_classifier";
-
 	float cone_width = 0.228;
 	float cone_height = 0.325;
 	float lidar_hor_res = 0.25; //degrees
 	float lidar_ver_res = 7.5;
 
-	// for our lidar
-	// uint8_t distance_treshold_max = 12;
-	// float distance_treshold_min = 0.7;
-	// float level_threshold = -0.5;
-	// uint8_t angle_threshold = 100;
+	double distance_treshold_max;
+	double distance_treshold_min;
+	double level_threshold;
+	double angle_threshold;
 
-	// uint8_t min_cluster_size = 3;
-	// uint16_t max_cluster_size = 50;
+	int min_cluster_size;
+	int max_cluster_size;
 
-	// for fsai rosbag
-	uint8_t distance_treshold_max = 6;
-	float distance_treshold_min = 1;
-	float level_threshold = -0.09;
-	uint8_t angle_threshold = 160;
-
-	uint8_t min_cluster_size = 3;
-	uint16_t max_cluster_size = 500;
-
-
-	float cones_recognition_dist_theshold = 0.5;
+	bool classify_colors;
+	double cones_matching_dist_theshold;
 
 	ros::NodeHandle nh;
     ros::Subscriber cloud_sub;
@@ -55,13 +39,29 @@ private:
 	cones_perception::ClassifyColorSrv color_srv;
 	pcl::PointCloud<pcl::PointXYZI>::Ptr prev_centroid_cloud;
 
-public:
+	std::string cones_frame_id;
+	std::string input_cloud_topic;
+	std::string cones_topic;
+	std::string color_classifier_srv_name;
 
+public:
 	ConeDetector(): nh("~"){
+		nh.getParam("cones_frame_id", cones_frame_id);
+		nh.getParam("input_cloud_topic", input_cloud_topic);
+		nh.getParam("cones_topic", cones_topic);
+		nh.getParam("classify_colors", classify_colors);
+		nh.getParam("color_classifier_srv_name", color_classifier_srv_name);
+		nh.getParam("distance_treshold_max", distance_treshold_max);
+		nh.getParam("distance_treshold_min", distance_treshold_min);
+		nh.getParam("level_threshold", level_threshold);
+		nh.getParam("angle_threshold", angle_threshold);
+		nh.getParam("min_cluster_size", min_cluster_size);
+		nh.getParam("max_cluster_size", max_cluster_size);
+		nh.getParam("cones_matching_dist_theshold", cones_matching_dist_theshold);
+
 		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(input_cloud_topic, 2, &ConeDetector::cloud_handler, this);
 		cones_pub = nh.advertise<sensor_msgs::PointCloud2>(cones_topic, 1);
 		color_srv_client = nh.serviceClient<cones_perception::ClassifyColorSrv>(color_classifier_srv_name);
-	
 	}
 
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
@@ -190,23 +190,24 @@ public:
 			p.y = y / j;
 			p.z = 0.0;
 
+			if (classify_colors) {
+				bool need_color = true;
 
-			bool need_color = true;
-
-			if (prev_centroid_cloud != NULL) {
-				for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = prev_centroid_cloud->points.begin(); it != prev_centroid_cloud->points.end(); it++) {
-					if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it->x, it->y, it->z) < cones_recognition_dist_theshold)
-								&& (it->intensity != perception_handling::colors_to_intensities[perception_handling::kUnknownColor])) {
-						p.intensity = it->intensity;
-						need_color = false;
+				if (prev_centroid_cloud != NULL) {
+					for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = prev_centroid_cloud->points.begin(); it != prev_centroid_cloud->points.end(); it++) {
+						if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it->x, it->y, it->z) < cones_matching_dist_theshold)
+									&& (it->intensity != perception_handling::colors_to_intensities[perception_handling::kUnknownColor])) {
+							p.intensity = it->intensity;
+							need_color = false;
+						}
 					}
 				}
-			}
 
-			if (need_color) {
-				/* color classification */
-				single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
-				p.intensity = perception_handling::colors_to_intensities[get_color(single_cone_cloud_reconstruct)];
+				if (need_color) {
+					/* color classification */
+					single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
+					p.intensity = perception_handling::colors_to_intensities[get_color(single_cone_cloud_reconstruct)];
+				}
 			}
 
 			centroid_cloud->push_back(p);
@@ -227,7 +228,7 @@ public:
 
         pcl::toROSMsg(*single_cone_cloud, single_cone_msg);
 
-		single_cone_msg.header.frame_id = frame_id;
+		single_cone_msg.header.frame_id = cones_frame_id;
 
 		color_srv.request.single_cone_cloud = single_cone_msg;
 		
