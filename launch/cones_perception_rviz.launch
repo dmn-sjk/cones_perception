@@ -6,7 +6,7 @@
         <param name="cones_topic" type="str" value="/cones_cloud"/>
         <param name="color_classifier_srv_name" type="str" value="/color_classifier"/>
         <param name="intensity_in_cloud" type="bool" value="true"/>
-        <param name="classify_colors" type="bool" value="false"/>
+        <param name="classify_colors" type="bool" value="true"/>
 
         <param name="cones_matching_dist_theshold" type="double" value="0.5"/>
 
