@@ -165,7 +165,7 @@ public:
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
         pcl::VoxelGrid<pcl::PointXYZI> vg;
         vg.setInputCloud(cloud);
-        vg.setLeafSize(0.04f, 075.04f, 0.05f);
+        vg.setLeafSize(0.04f, 0.04f, 0.05f);
         vg.filter(*cloud_filtered);
 
         return cloud_filtered;
