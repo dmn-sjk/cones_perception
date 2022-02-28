@@ -9,6 +9,7 @@
         <param name="classify_colors" type="bool" value="true"/>
 
         <param name="cones_matching_dist_theshold" type="double" value="0.5"/>
+        <param name="cone_position_extension_length" type="double" value="0.05"/> <!-- 5 cm -->
 
         <!-- for our rosbags -->
         <!-- <param name="input_cloud_topic" type="str" value="/cloud"/>

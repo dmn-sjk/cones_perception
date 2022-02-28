@@ -30,6 +30,7 @@ private:
 
 	bool classify_colors;
 	double cones_matching_dist_theshold;
+	double cone_position_extension_length;
 
 	ros::NodeHandle nh;
     ros::Subscriber cloud_sub;
@@ -58,6 +59,7 @@ public:
 		nh.getParam("min_cluster_size", min_cluster_size);
 		nh.getParam("max_cluster_size", max_cluster_size);
 		nh.getParam("cones_matching_dist_theshold", cones_matching_dist_theshold);
+		nh.getParam("cone_position_extension_length", cone_position_extension_length);
 
 		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(input_cloud_topic, 2, &ConeDetector::cloud_handler, this);
 		cones_pub = nh.advertise<sensor_msgs::PointCloud2>(cones_topic, 1);
@@ -182,7 +184,7 @@ public:
 			int j = 0;
 			float x, y = 0.0;
 			for (const auto& idx : it->indices){
-				//single_cone_cloud_filtered->push_back((*filtered_cloud)[idx]);
+				// single_cone_cloud_filtered->push_back((*filtered_cloud)[idx]);
 				x += (*filtered_cloud)[idx].x;
 				y += (*filtered_cloud)[idx].y;
 				j++;
@@ -192,7 +194,10 @@ public:
 			p.y = y / j;
 			p.z = 0.0;
 
-			// TODO: add vector of length 5cm to centroid position
+			float vector_len = perception_handling::euclidan_dist(p.x, p.y, p.z, 0, 0, 0);
+			p.x = p.x + p.x / vector_len * cone_position_extension_length;
+			p.y = p.y + p.y / vector_len * cone_position_extension_length;
+			// p.z = p.z + p.z / vector_len * cone_position_extension_length;
 
 			if (classify_colors) {
 				bool need_color = true;
