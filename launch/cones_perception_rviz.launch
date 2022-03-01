@@ -3,7 +3,10 @@
  
     <node pkg="cones_perception" type="cone_detection" name="cone_detection" output="screen">
         <param name="cones_frame_id" type="str" value="cloud"/>
-        <param name="cones_topic" type="str" value="/cones_cloud"/>
+        <param name="cones_topic_unknowns" type="str" value="/cones_cloud_unknowns"/>
+        <param name="cones_topic_yellows" type="str" value="/cones_cloud_yellows"/>
+        <param name="cones_topic_blues" type="str" value="/cones_cloud_blues"/>
+        <param name="cones_topic_oranges" type="str" value="/cones_cloud_oranges"/>
         <param name="color_classifier_srv_name" type="str" value="/color_classifier"/>
         <param name="intensity_in_cloud" type="bool" value="true"/>
         <param name="classify_colors" type="bool" value="true"/>

@@ -10,6 +10,7 @@ namespace perception_handling {
         kYellow,
         kBlue,
         kOrange,
+        // kBiggerOrange,
         kNumberOfColors
     } Color;
 
