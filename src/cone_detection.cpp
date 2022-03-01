@@ -38,7 +38,11 @@ private:
 	ros::ServiceClient color_srv_client;
 
 	cones_perception::ClassifyColorSrv color_srv;
-	pcl::PointCloud<pcl::PointXYZI>::Ptr prev_centroid_cloud;
+	std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr, 
+			    Eigen::aligned_allocator<pcl::PointCloud <pcl::PointXYZI>::Ptr>> prev_centroid_clouds = 
+			    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr, 
+				Eigen::aligned_allocator<pcl::PointCloud <pcl::PointXYZI>::Ptr>>(perception_handling::kNumberOfColors);
+
 
 	std::string cones_frame_id;
 	std::string input_cloud_topic;
@@ -213,21 +217,27 @@ public:
 			if (classify_colors) {
 				bool need_color = true;
 
-				// if (prev_centroid_cloud != NULL) {
-				// 	for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = prev_centroid_cloud->points.begin(); it != prev_centroid_cloud->points.end(); it++) {
-				// 		if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it->x, it->y, it->z) < cones_matching_dist_theshold)
-				// 					&& (it->intensity != perception_handling::colors_to_intensities[perception_handling::kUnknownColor])) {
-				// 			p.intensity = it->intensity;
-				// 			need_color = false;
-				// 		}
-				// 	}
-				// }
+				// unknown color always need color classification
+				for (int i = perception_handling::kUnknownColor + 1; i < perception_handling::kNumberOfColors; i++) {
+					if (prev_centroid_clouds[i] != NULL) {
+						for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = prev_centroid_clouds[i]->points.begin(); it != prev_centroid_clouds[i]->points.end(); it++) {
+							if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it->x, it->y, it->z) < cones_matching_dist_theshold)) {
+								// color already classified earlier
+								need_color = false;
+								centroid_clouds[i]->push_back(p);
+								break;
+							}
+						}
+						if (!need_color) {
+							break;
+						}
+					}
+				}
 
 				if (need_color) {
 					/* color classification */
 					single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
 					perception_handling::Color color = get_color(single_cone_cloud_reconstruct);
-					// p.intensity = perception_handling::colors_to_intensities[color];
 					centroid_clouds[color]->push_back(p);
 				}
 			} else {
@@ -240,7 +250,9 @@ public:
 			y = 0.0;
 		}
 
-		// prev_centroid_cloud = centroid_cloud;
+		for (int i = 0; i < perception_handling::kNumberOfColors; i++) {
+			prev_centroid_clouds[i] = centroid_clouds[i];
+		}
 	}
 
 	perception_handling::Color get_color(pcl::PointCloud<pcl::PointXYZI>::Ptr &single_cone_cloud) {
