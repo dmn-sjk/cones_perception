@@ -16,7 +16,6 @@
 
 class GroundRemover{
 private:
-	// float lidar_aperture_angle = 275;
 	int num_of_sectors = 16;
 	float sector_angle_rad = (360 / num_of_sectors) * M_PI / 180;
 
@@ -24,13 +23,14 @@ private:
     ros::Subscriber cloud_sub;
     ros::Publisher groundless_cloud_pub;
 
-	std::string input_cloud_topic;
-	std::string groundless_cloud_topic;
+	std::string input_cloud_topic = "/cloud";
+	std::string groundless_cloud_topic = "groundless_cloud";
 
 public:
-	GroundRemover(): nh("~"){
-		nh.getParam("input_cloud_topic", input_cloud_topic);
-		nh.getParam("groundless_cloud_topic", groundless_cloud_topic);
+	GroundRemover(): nh() {
+		if (!ros::param::get("~output_cloud_topic", groundless_cloud_topic)) {
+			ROS_INFO("output_cloud_topic param not found, setting to default: %s", groundless_cloud_topic.c_str());
+		}
 
 		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(input_cloud_topic, 2, &GroundRemover::cloud_handler, this);
 		groundless_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>(groundless_cloud_topic, 1);
@@ -66,24 +66,9 @@ public:
 												float atan_angle = atan2(p.y, p.x);
 												float angle = (atan_angle < 0) ? atan_angle += 2 * M_PI : atan_angle;
 												int sector = floor(angle / sector_angle_rad);
-												// if (sector == 0) {
-												// 	return true;
-												// } else {
-												// 	return false;
-												// }
 											   return p.z < sectors_lowest_points[sector] + 0.1;
 										   }),
 							input_cloud_copy->points.end());
-
-
-
-
-		// input_cloud_copy->points.erase(std::remove_if(input_cloud_copy->points.begin(), input_cloud_copy->points.end(),
-		// 								   [&](pcl::PointXYZI p) {
-		// 									   return -20 * M_PI / 180 >= atan2(p.y, p.x);
-		// 								   }),
-		// 					input_cloud_copy->points.end());
-
 
 		input_cloud_copy->resize(cloud_size);
 

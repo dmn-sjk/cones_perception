@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    
+    <arg name="used_lidar" default="our" /> <!-- options: our, fsai, simulation -->
+    <arg name="classify_colors" default="false" />
+    <arg name="use_points_buffer" default="true" />
+    <arg name="ground_removal" default="false" />
+    <arg name="color_classifier_srv_name" default="color_classifier" />
+
+    <arg name="simulation_lidar_topic" default="/fsds/lidar/Lidar" />
+    <arg name="fsai_lidar_topic" default="/velodyne_points" />
+    <arg name="groundless_cloud_topic" default="groundless_cloud" />
+    <arg name="default_input_cloud_topic" default="/cloud" />
+
+    <!-- cones detection -->
+    <group unless="$(eval ground_removal == true)">
+
+        <group if="$(eval used_lidar == 'our')">
+            <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
+                <param name="cones_frame_id" type="str" value="cloud"/>
+                <param name="intensity_in_cloud" type="bool" value="true"/>
+                <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
+                <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
+                <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
+                <rosparam file="$(find cones_perception)/config/cones_detection_params_our.yaml" command="load" />
+            </node>
+        </group>
+
+        <group if="$(eval used_lidar == 'fsai')">
+            <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
+                <param name="cones_frame_id" type="str" value="cloud"/>
+                <remap from="$(arg default_input_cloud_topic)" to="$(arg fsai_lidar_topic)"/>
+                <param name="intensity_in_cloud" type="bool" value="true"/>
+                <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
+                <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
+                <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
+                <rosparam file="$(find cones_perception)/config/cones_detection_params_fsai.yaml" command="load" />
+            </node>
+        </group>
+
+        <group if="$(eval used_lidar == 'simulation')">
+            <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
+                <param name="cones_frame_id" type="str" value="cloud"/>
+                <remap from="$(arg default_input_cloud_topic)" to="$(arg simulation_lidar_topic)"/>
+                <param name="intensity_in_cloud" type="bool" value="false"/>
+                <param name="classify_colors" type="bool" value="false"/>
+                <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
+                <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
+                <rosparam file="$(find cones_perception)/config/cones_detection_params_simulation.yaml" command="load" />
+            </node>
+        </group>
+
+    </group>
+
+    <group if="$(eval ground_removal == true)">
+
+        <group if="$(eval used_lidar == 'our')">
+            <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
+                <param name="cones_frame_id" type="str" value="cloud"/>
+                <remap from="$(arg default_input_cloud_topic)" to="$(arg groundless_cloud_topic)"/>
+                <param name="intensity_in_cloud" type="bool" value="true"/>
+                <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
+                <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
+                <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
+                <rosparam file="$(find cones_perception)/config/cones_detection_params_our.yaml" command="load" />
+            </node>
+        </group>
+
+        <group if="$(eval used_lidar == 'fsai')">
+            <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
+                <param name="cones_frame_id" type="str" value="cloud"/>
+                <remap from="$(arg default_input_cloud_topic)" to="$(arg groundless_cloud_topic)"/>
+                <param name="intensity_in_cloud" type="bool" value="true"/>
+                <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
+                <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
+                <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
+                <rosparam file="$(find cones_perception)/config/cones_detection_params_fsai.yaml" command="load" />
+            </node>
+        </group>
+
+        <group if="$(eval used_lidar == 'simulation')">
+            <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
+                <param name="cones_frame_id" type="str" value="cloud"/>
+                <remap from="$(arg default_input_cloud_topic)" to="$(arg groundless_cloud_topic)"/>
+                <param name="intensity_in_cloud" type="bool" value="false"/>
+                <param name="classify_colors" type="bool" value="false"/>
+                <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
+                <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
+                <rosparam file="$(find cones_perception)/config/cones_detection_params_simulation.yaml" command="load" />
+            </node>
+        </group>
+
+    </group>
+    
+
+</launch>

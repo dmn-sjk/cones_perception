@@ -39,7 +39,7 @@ data_collection = False
 
 class ColorClassifier:
     def __init__(self):
-        self.srv = rospy.Service('/color_classifier', ClassifyColorSrv, self.handle_classify_color)
+        self.srv = rospy.Service('color_classifier', ClassifyColorSrv, self.handle_classify_color)
 
         self.df = pd.DataFrame({'x':[], 'y':[], 'z':[], 'intensity':[],'color':[]})
 
@@ -115,7 +115,7 @@ class ColorClassifier:
         # horizontal slope is dependent on range of current angle, cuz horizontal resolution of lidar in not regular,
         # so when it is calculated like vertical one, there are blank pixels in between points (horizontally), which
         # I think could be a problem while teaching neural net.
-        slope_horiz = (IMG_COLS - 1) / (max_horiz_angle - min_horiz_angle)
+        slope_horiz = (IMG_COLS - 1) / (max_horiz_angle - min_horiz_angle + 1e-16)
         img_poses_h = (np.round(slope_horiz * (horiz_angles - min_horiz_angle))).astype(int)
 
         image = np.zeros((IMG_ROWS, IMG_COLS, 1), np.uint8)

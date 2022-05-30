@@ -15,22 +15,35 @@
 class ConeDetector{
 private:
 
-	float cone_width = 0.228;
-	float cone_height = 0.325;
-	float lidar_hor_res = 0.25; //degrees
-	float lidar_ver_res = 7.5;
+	const float CONE_WIDTH = 0.228;
+	const float CONE_HEIGHT = 0.325;
+	const float LIDAR_HOR_RES = 0.25; //degrees
+	const float LIDAR_VER_RES = 7.5;
 
-	double distance_treshold_max;
-	double distance_treshold_min;
-	double level_threshold;
-	double angle_threshold;
+	double distance_treshold_max = 7.0;
+	double distance_treshold_min = 0.7;
+	double level_threshold = -0.5;
+	double angle_threshold = 90.0;
 
-	int min_cluster_size;
-	int max_cluster_size;
+	int min_cluster_size = 3;
+	int max_cluster_size = 50;
 
-	bool classify_colors;
-	double cones_matching_dist_theshold;
-	double cone_position_extension_length;
+	bool classify_colors = true;
+	bool use_points_buffer = false;
+	bool intensity_in_cloud = true;
+	double cones_matching_dist_theshold = 0.5;
+	double cone_position_extension_length = 0.05;
+	double voxel_filter_leaf_size_x = 0.04;
+	double voxel_filter_leaf_size_y = 0.04;
+	double voxel_filter_leaf_size_z = 0.04;
+
+	std::string cones_frame_id = "cloud";
+	std::string input_cloud_topic = "/cloud";
+	std::string cones_topics[perception_handling::kNumberOfColors] = {"cones_cloud_unknowns",
+																	  "cones_cloud_yellows",
+																	  "cones_cloud_blues",
+																	  "cones_cloud_oranges"};
+	std::string color_classifier_srv_name = "color_classifier";
 
 	ros::NodeHandle nh;
     ros::Subscriber cloud_sub;
@@ -43,36 +56,67 @@ private:
 			    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr, 
 				Eigen::aligned_allocator<pcl::PointCloud <pcl::PointXYZI>::Ptr>>(perception_handling::kNumberOfColors);
 
-
-	std::string cones_frame_id;
-	std::string input_cloud_topic;
-	std::string cones_topics[perception_handling::kNumberOfColors];
-	std::string color_classifier_srv_name;
+	pcl::PointCloud<pcl::PointXYZI>::Ptr prev_detected_cones;
 
 public:
-	ConeDetector(): nh("~"){
-		nh.getParam("cones_frame_id", cones_frame_id);
-		nh.getParam("input_cloud_topic", input_cloud_topic);
-		nh.getParam("cones_topic_unknowns", cones_topics[perception_handling::kUnknownColor]);
-		nh.getParam("cones_topic_yellows", cones_topics[perception_handling::kYellow]);
-		nh.getParam("cones_topic_blues", cones_topics[perception_handling::kBlue]);
-		nh.getParam("cones_topic_oranges", cones_topics[perception_handling::kOrange]);
-		nh.getParam("classify_colors", classify_colors);
-		nh.getParam("color_classifier_srv_name", color_classifier_srv_name);
-		nh.getParam("distance_treshold_max", distance_treshold_max);
-		nh.getParam("distance_treshold_min", distance_treshold_min);
-		nh.getParam("level_threshold", level_threshold);
-		nh.getParam("angle_threshold", angle_threshold);
-		nh.getParam("min_cluster_size", min_cluster_size);
-		nh.getParam("max_cluster_size", max_cluster_size);
-		nh.getParam("cones_matching_dist_theshold", cones_matching_dist_theshold);
-		nh.getParam("cone_position_extension_length", cone_position_extension_length);
+	ConeDetector(): nh() {
+		if (!ros::param::get("~cones_frame_id", cones_frame_id)) {
+			ROS_INFO("cones_frame_id param not found, setting to default: %s", cones_frame_id.c_str());
+		}
+		if (!ros::param::get("~classify_colors", classify_colors)) {
+			ROS_INFO("classify_colors param not found, setting to default: %s", classify_colors ? "true" : "false");
+		}
+		if (!ros::param::get("~use_points_buffer", use_points_buffer)) {
+			ROS_INFO("use_points_buffer param not found, setting to default: %s", use_points_buffer ? "true" : "false");
+		}
+		if (!ros::param::get("~intensity_in_cloud", intensity_in_cloud)) {
+			ROS_INFO("intensity_in_cloud param not found, setting to default: %s", intensity_in_cloud ? "true" : "false");
+		}
+		if (!ros::param::get("~color_classifier_srv_name", color_classifier_srv_name)) {
+			ROS_INFO("color_classifier_srv_name param not found, setting to default: %s", color_classifier_srv_name.c_str());
+		}
+		if (!ros::param::get("~distance_treshold_max", distance_treshold_max)) {
+			ROS_INFO("distance_treshold_max param not found, setting to default: %f", distance_treshold_max);
+		}
+		if (!ros::param::get("~distance_treshold_min", distance_treshold_min)) {
+			ROS_INFO("distance_treshold_min param not found, setting to default: %f", distance_treshold_min);
+		}
+		if (!ros::param::get("~level_threshold", level_threshold)) {
+			ROS_INFO("level_threshold param not found, setting to default: %f", level_threshold);
+		}
+		if (!ros::param::get("~angle_threshold", angle_threshold)) {
+			ROS_INFO("angle_threshold param not found, setting to default: %f", angle_threshold);
+		}
+		if (!ros::param::get("~min_cluster_size", min_cluster_size)) {
+			ROS_INFO("min_cluster_size param not found, setting to default: %d", min_cluster_size);
+		}
+		if (!ros::param::get("~max_cluster_size", max_cluster_size)) {
+			ROS_INFO("max_cluster_size param not found, setting to default: %d", max_cluster_size);
+		}
+		if (!ros::param::get("~cones_matching_dist_theshold", cones_matching_dist_theshold)) {
+			ROS_INFO("cones_matching_dist_theshold param not found, setting to default: %f", cones_matching_dist_theshold);
+		}
+		if (!ros::param::get("~cone_position_extension_length", cone_position_extension_length)) {
+			ROS_INFO("cone_position_extension_length param not found, setting to default: %f", cone_position_extension_length);
+		}
+		if (!ros::param::get("~voxel_filter_leaf_size_x", voxel_filter_leaf_size_x)) {
+			ROS_INFO("voxel_filter_leaf_size_x param not found, setting to default: %f", voxel_filter_leaf_size_x);
+		}
+		if (!ros::param::get("~voxel_filter_leaf_size_y", voxel_filter_leaf_size_y)) {
+			ROS_INFO("voxel_filter_leaf_size_y param not found, setting to default: %f", voxel_filter_leaf_size_y);
+		}
+		if (!ros::param::get("~voxel_filter_leaf_size_z", voxel_filter_leaf_size_z)) {
+			ROS_INFO("voxel_filter_leaf_size_z param not found, setting to default: %f", voxel_filter_leaf_size_z);
+		}
 
 		cloud_sub = nh.subscribe<sensor_msgs::PointCloud2>(input_cloud_topic, 2, &ConeDetector::cloud_handler, this);
 		for (int i = 0; i < perception_handling::kNumberOfColors; i++) {
 			cones_pubs[i] = nh.advertise<sensor_msgs::PointCloud2>(cones_topics[i], 1);
 		}
-		color_srv_client = nh.serviceClient<cones_perception::ClassifyColorSrv>(color_classifier_srv_name);
+
+		if (classify_colors) {
+			color_srv_client = nh.serviceClient<cones_perception::ClassifyColorSrv>(color_classifier_srv_name);
+		}
 	}
 
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
@@ -87,8 +131,6 @@ public:
 		
 		pcl::copyPointCloud(*input_cloud, *input_cloud_copy);
 
-		// TODO: make filter function return filtered cloud, so there will be no need to copy input
-		// Deleting points too far away, too close and limiting horizontal FoV
 		filter_points_position(input_cloud);
 		
 		//input_cloud->resize(cloud_size);
@@ -147,7 +189,7 @@ public:
 
         std::vector<pcl::PointIndices> cluster_indices;
 	  	pcl::EuclideanClusterExtraction<pcl::PointXYZI> ec;
-		ec.setClusterTolerance(sqrt(pow(this->cone_height, 2) + pow(this->cone_width, 2)));
+		ec.setClusterTolerance(sqrt(pow(CONE_HEIGHT, 2) + pow(CONE_WIDTH, 2)));
 		ec.setMinClusterSize(min_cluster_size);
 		ec.setMaxClusterSize(max_cluster_size);
 		ec.setSearchMethod(kdtree);
@@ -162,8 +204,8 @@ public:
 		pcl::PointXYZI p;
 
 		for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = cloud->points.begin(); it != cloud->points.end(); it++) {
-			if ((cone_center.x + (cone_width / 1.5) >= it->x && cone_center.x - (cone_width / 1.5) <= it->x) &&
-				(cone_center.y + (cone_width / 1.5) >= it->y && cone_center.y - (cone_width / 1.5) <= it->y)) {
+			if ((cone_center.x + (CONE_WIDTH / 1.5) >= it->x && cone_center.x - (CONE_WIDTH / 1.5) <= it->x) &&
+				(cone_center.y + (CONE_WIDTH / 1.5) >= it->y && cone_center.y - (CONE_WIDTH / 1.5) <= it->y)) {
 					p.x = it->x;
 					p.y = it->y;
 					p.z = it->z;
@@ -179,7 +221,8 @@ public:
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
         pcl::VoxelGrid<pcl::PointXYZI> vg;
         vg.setInputCloud(cloud);
-        vg.setLeafSize(0.04f, 0.04f, 0.05f);
+        // vg.setLeafSize(0.04f, 0.04f, 0.05f);
+		vg.setLeafSize(voxel_filter_leaf_size_x, voxel_filter_leaf_size_y, voxel_filter_leaf_size_z);
         vg.filter(*cloud_filtered);
 
         return cloud_filtered;
@@ -189,8 +232,8 @@ public:
 															const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &filtered_cloud,
 															std::vector<pcl::PointIndices> cluster_indices,
 															std::vector<pcl::shared_ptr<pcl::PointCloud<pcl::PointXYZI>>, Eigen::aligned_allocator<pcl::shared_ptr<pcl::PointCloud<pcl::PointXYZI>>>> centroid_clouds) {
-		//pcl::PointCloud<pcl::PointXYZ>::Ptr single_cone_cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>);
 		pcl::PointCloud<pcl::PointXYZI>::Ptr single_cone_cloud_reconstruct (new pcl::PointCloud<pcl::PointXYZI>);
+		pcl::PointCloud<pcl::PointXYZI>::Ptr currently_detected_cones (new pcl::PointCloud<pcl::PointXYZI>);
 
         for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
 		{
@@ -198,7 +241,6 @@ public:
 			int j = 0;
 			float x, y = 0.0;
 			for (const auto& idx : it->indices){
-				// single_cone_cloud_filtered->push_back((*filtered_cloud)[idx]);
 				x += (*filtered_cloud)[idx].x;
 				y += (*filtered_cloud)[idx].y;
 				j++;
@@ -208,43 +250,53 @@ public:
 			p.y = y / j;
 			p.z = 0.0;
 
-			// move centroid further back, closer t0 the middle of cone
+			// move centroid further back, closer to the middle of cone
 			float vector_len = perception_handling::euclidan_dist(p.x, p.y, p.z, 0, 0, 0);
 			p.x = p.x + p.x / vector_len * cone_position_extension_length;
 			p.y = p.y + p.y / vector_len * cone_position_extension_length;
-			// p.z = p.z + p.z / vector_len * cone_position_extension_length;
 
-			if (classify_colors) {
-				bool need_color = true;
+			currently_detected_cones->push_back(p);
 
-				// unknown color always need color classification
-				for (int i = perception_handling::kUnknownColor + 1; i < perception_handling::kNumberOfColors; i++) {
-					if (prev_centroid_clouds[i] != NULL) {
-						for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = prev_centroid_clouds[i]->points.begin(); it != prev_centroid_clouds[i]->points.end(); it++) {
-							if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it->x, it->y, it->z) < cones_matching_dist_theshold)) {
-								// color already classified earlier
-								need_color = false;
-								centroid_clouds[i]->push_back(p);
-								break;
+			if (prev_detected_cones != NULL) {
+				for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it_prev_cones = prev_detected_cones->points.begin(); 
+					it_prev_cones != prev_detected_cones->points.end(); it_prev_cones++) {
+					// if points buffer is not used or cone was detected in previous loop (then publish)
+					if (!use_points_buffer || perception_handling::euclidan_dist(p.x, p.y, p.z, it_prev_cones->x, it_prev_cones->y, it_prev_cones->z) < cones_matching_dist_theshold) {
+						if (classify_colors) {
+							bool need_color = true;
+
+							// unknown color always need color classification
+							for (int i = perception_handling::kUnknownColor + 1; i < perception_handling::kNumberOfColors; i++) {
+								if (prev_centroid_clouds[i] != NULL) {
+									// check if detected cone was detected in previous loop and color was classified
+									for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it_colored_cones = prev_centroid_clouds[i]->points.begin(); 
+										it_colored_cones != prev_centroid_clouds[i]->points.end(); it_colored_cones++) {
+										if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it_colored_cones->x, it_colored_cones->y, it_colored_cones->z) < cones_matching_dist_theshold)) {
+											// color already classified earlier
+											need_color = false;
+											centroid_clouds[i]->push_back(p);
+											break;
+										}
+									}
+									if (!need_color) {
+										break;
+									}
+								}
 							}
+							
+							if (need_color) {
+								/* color classification */
+								single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
+								perception_handling::Color color = get_color(single_cone_cloud_reconstruct);
+								centroid_clouds[color]->push_back(p);
+							}
+						} else {
+							centroid_clouds[perception_handling::kUnknownColor]->push_back(p);
 						}
-						if (!need_color) {
-							break;
-						}
+						break;
 					}
 				}
-
-				if (need_color) {
-					/* color classification */
-					single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
-					perception_handling::Color color = get_color(single_cone_cloud_reconstruct);
-					centroid_clouds[color]->push_back(p);
-				}
-			} else {
-				centroid_clouds[perception_handling::kUnknownColor]->push_back(p);
 			}
-
-
 			j = 0;
 			x = 0.0;
 			y = 0.0;
@@ -253,6 +305,8 @@ public:
 		for (int i = 0; i < perception_handling::kNumberOfColors; i++) {
 			prev_centroid_clouds[i] = centroid_clouds[i];
 		}
+
+		prev_detected_cones = currently_detected_cones;
 	}
 
 	perception_handling::Color get_color(pcl::PointCloud<pcl::PointXYZI>::Ptr &single_cone_cloud) {
