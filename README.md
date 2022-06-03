@@ -2,5 +2,5 @@
 
 ## Detect cones in LIDAR point cloud
 ```bash
-rosrun cones_perception cone_detection
+roslaunch cones_perception cones_perception.launch
 ```
