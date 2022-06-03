@@ -18,7 +18,6 @@
         <group if="$(eval used_lidar == 'our')">
             <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
                 <param name="cones_frame_id" type="str" value="cloud"/>
-                <param name="intensity_in_cloud" type="bool" value="true"/>
                 <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
                 <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
                 <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
@@ -30,7 +29,6 @@
             <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
                 <param name="cones_frame_id" type="str" value="cloud"/>
                 <remap from="$(arg default_input_cloud_topic)" to="$(arg fsai_lidar_topic)"/>
-                <param name="intensity_in_cloud" type="bool" value="true"/>
                 <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
                 <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
                 <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
@@ -42,8 +40,7 @@
             <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
                 <param name="cones_frame_id" type="str" value="cloud"/>
                 <remap from="$(arg default_input_cloud_topic)" to="$(arg simulation_lidar_topic)"/>
-                <param name="intensity_in_cloud" type="bool" value="false"/>
-                <param name="classify_colors" type="bool" value="false"/>
+                <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
                 <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
                 <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
                 <rosparam file="$(find cones_perception)/config/cones_detection_params_simulation.yaml" command="load" />
@@ -58,7 +55,6 @@
             <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
                 <param name="cones_frame_id" type="str" value="cloud"/>
                 <remap from="$(arg default_input_cloud_topic)" to="$(arg groundless_cloud_topic)"/>
-                <param name="intensity_in_cloud" type="bool" value="true"/>
                 <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
                 <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
                 <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
@@ -70,7 +66,6 @@
             <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
                 <param name="cones_frame_id" type="str" value="cloud"/>
                 <remap from="$(arg default_input_cloud_topic)" to="$(arg groundless_cloud_topic)"/>
-                <param name="intensity_in_cloud" type="bool" value="true"/>
                 <param name="classify_colors" type="bool" value="$(arg classify_colors)"/>
                 <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
                 <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>
@@ -82,7 +77,6 @@
             <node pkg="cones_perception" type="cone_detection" name="cones_detection" output="screen">
                 <param name="cones_frame_id" type="str" value="cloud"/>
                 <remap from="$(arg default_input_cloud_topic)" to="$(arg groundless_cloud_topic)"/>
-                <param name="intensity_in_cloud" type="bool" value="false"/>
                 <param name="classify_colors" type="bool" value="false"/>
                 <param name="use_points_buffer" type="bool" value="$(arg use_points_buffer)"/>
                 <param name="color_classifier_srv_name" type="str" value="$(arg color_classifier_srv_name)"/>

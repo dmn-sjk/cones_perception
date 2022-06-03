@@ -34,4 +34,13 @@ namespace perception_handling {
         return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2) + pow(z1 - z2, 2));
     }
 
+    bool intensity_in_cloud(sensor_msgs::PointCloud2ConstPtr cloud_msg) {
+		for (auto field : cloud_msg->fields) {
+			if (field.name == "intensity") {
+				return true;
+			}
+		}
+        return false;
+    }
+
 }

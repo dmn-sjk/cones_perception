@@ -45,9 +45,11 @@
         <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find cones_perception)/rviz/config.rviz" />
 
         <!-- Static transforms between scanners and map frame -->
-        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_cloud" args="0 0 0 0 0 0 map cloud" /> 
-        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_sim_lidar" args="0 0 0 0 0 0 map fsds/Lidar" if="$(eval used_lidar == 'simulation')" /> 
-        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_fsai_lidar" args="0 0 0 0 0 0 map lidar" if="$(eval used_lidar == 'fsai')" />
+        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_cloud" args="0 0 0 0 0 0 cloud map" if="$(eval used_lidar == 'our')" /> 
+        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_sim_lidar" args="0 0 0 0 0 0 fsds/Lidar map" if="$(eval used_lidar == 'simulation')" /> 
+        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_fsai_lidar" args="0 0 0 0 0 0 lidar map" if="$(eval used_lidar == 'fsai')" />
+
+        <param name="/use_sim_time" value="true"/>
     </group>
 
 </launch>

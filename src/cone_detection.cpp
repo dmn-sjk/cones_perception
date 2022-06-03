@@ -30,6 +30,7 @@ private:
 
 	bool classify_colors = true;
 	bool use_points_buffer = false;
+	bool intensity_in_cloud_checked = false;
 	bool intensity_in_cloud = true;
 	double cones_matching_dist_theshold = 0.5;
 	double cone_position_extension_length = 0.05;
@@ -68,9 +69,6 @@ public:
 		}
 		if (!ros::param::get("~use_points_buffer", use_points_buffer)) {
 			ROS_INFO("use_points_buffer param not found, setting to default: %s", use_points_buffer ? "true" : "false");
-		}
-		if (!ros::param::get("~intensity_in_cloud", intensity_in_cloud)) {
-			ROS_INFO("intensity_in_cloud param not found, setting to default: %s", intensity_in_cloud ? "true" : "false");
 		}
 		if (!ros::param::get("~color_classifier_srv_name", color_classifier_srv_name)) {
 			ROS_INFO("color_classifier_srv_name param not found, setting to default: %s", color_classifier_srv_name.c_str());
@@ -119,13 +117,39 @@ public:
 		}
 	}
 
+	void run() {
+		if (classify_colors) {
+			color_srv_client.waitForExistence();
+		}
+		ROS_INFO("Ready to detect cones.");
+		ros::spin();
+	}
+
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
+		if (!intensity_in_cloud_checked) {
+			if (!perception_handling::intensity_in_cloud(cloud_msg)) {
+				intensity_in_cloud = false;
+			}
+			intensity_in_cloud_checked = true;
+		}
 
         pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud(new pcl::PointCloud <pcl::PointXYZI>);
 		pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_copy(new pcl::PointCloud <pcl::PointXYZI>);
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
 
-        pcl::fromROSMsg(*cloud_msg, *input_cloud);
+		if (!intensity_in_cloud) {
+			/* to silence the warnings */
+			sensor_msgs::PointCloud2 cloud_msg_copy;
+			cloud_msg_copy = *cloud_msg;
+			sensor_msgs::PointField f;
+			f.name = "intensity";
+			f.count = 1;
+			f.datatype = sensor_msgs::PointField::FLOAT32;
+			cloud_msg_copy.fields.push_back(f);
+			pcl::fromROSMsg(cloud_msg_copy, *input_cloud);
+		} else {
+			pcl::fromROSMsg(*cloud_msg, *input_cloud);
+		}
 
 		int cloud_size = input_cloud->points.size();
 		
@@ -157,12 +181,6 @@ public:
 			cones_cloud.fields = cloud_msg->fields;
 
 			cones_pubs[i].publish(cones_cloud);
-		}
-	}
-
-	void wait_till_color_classifier_ready() {
-		if (classify_colors) {
-			color_srv_client.waitForExistence();
 		}
 	}
 
@@ -336,9 +354,6 @@ int main(int argc, char* argv[])
 {
 	ros::init(argc, argv, "cone_detector");
   	ConeDetector detector;
-	detector.wait_till_color_classifier_ready();
-	ROS_INFO("Ready to detect cones.");
-    ros::spin();
-
+	detector.run();
     return 0;
 }

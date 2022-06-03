@@ -31,7 +31,8 @@ IMG_COLS = 12
 
 slope_vert = IMG_ROWS / (MIN_V_ANGLE - MAX_V_ANGLE)
 
-intensity_interp = interp1d([0, 100], [0, 255])
+# intensity_interp = interp1d([0, 100], [0, 255])
+intensity_interp = interp1d([0, 255], [0, 255])
 
 
 data_collection = False
