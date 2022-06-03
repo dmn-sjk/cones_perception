@@ -1,6 +1,6 @@
-# slam
+# Cones perception via LiDAR sensor
 
 ## Detect cones in LIDAR point cloud
 ```bash
-rosrun slam cone_detection
+roslaunch cones_perception cones_perception.launch
 ```

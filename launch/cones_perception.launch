@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+
+    <group ns="cones_perception">
+
+        <arg name="used_lidar" default="our" /> <!-- options: our, fsai, simulation -->
+        <arg name="classify_colors" default="true" />
+        <arg name="ground_removal" default="true" />
+        <arg name="use_points_buffer" default="false" />
+
+        <arg name="simulation_lidar_topic" value="/fsds/lidar/Lidar" />
+        <arg name="fsai_lidar_topic" value="/velodyne_points" />
+        <arg name="groundless_cloud_topic" value="groundless_cloud" />
+        <arg name="default_input_cloud_topic" value="/cloud" />
+
+        <!-- ground removal -->
+        <group if="$(eval ground_removal == true)">
+            <include file="$(find cones_perception)/launch/ground_removal.launch" >
+                <arg name="used_lidar" value="$(arg used_lidar)" />
+                <arg name="simulation_lidar_topic" value="$(arg simulation_lidar_topic)" />
+                <arg name="fsai_lidar_topic" value="$(arg fsai_lidar_topic)" />
+                <arg name="output_cloud_topic" value="$(arg groundless_cloud_topic)" />
+                <arg name="default_input_cloud_topic" value="$(arg default_input_cloud_topic)" />
+            </include>
+        </group>
+
+        <!-- cones detection -->
+        <include file="$(find cones_perception)/launch/cones_detection.launch" >
+            <arg name="classify_colors" value="$(arg classify_colors)"/>
+            <arg name="use_points_buffer" value="$(arg use_points_buffer)"/>
+            <arg name="used_lidar" value="$(arg used_lidar)" />
+            <arg name="ground_removal" default="$(arg ground_removal)" />
+            <arg name="simulation_lidar_topic" value="$(arg simulation_lidar_topic)" />
+            <arg name="fsai_lidar_topic" value="$(arg fsai_lidar_topic)" />
+            <arg name="groundless_cloud_topic" value="$(arg groundless_cloud_topic)" />
+            <arg name="default_input_cloud_topic" value="$(arg default_input_cloud_topic)" />
+        </include>
+
+        <!-- color classifier -->
+        <group if="$(eval classify_colors == true and used_lidar != 'simulation')">
+            <node pkg="cones_perception" type="color_classifier_server.py" name="color_classifier_server" output="screen" />
+        </group>
+
+        <!-- Rviz -->
+        <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find cones_perception)/rviz/config.rviz" />
+
+        <!-- Static transforms between scanners and map frame -->
+        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_cloud" args="0 0 0 0 0 0 cloud map" if="$(eval used_lidar == 'our')" /> 
+        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_sim_lidar" args="0 0 0 0 0 0 fsds/Lidar map" if="$(eval used_lidar == 'simulation')" /> 
+        <node pkg="tf2_ros" type="static_transform_publisher" name="link_map_fsai_lidar" args="0 0 0 0 0 0 lidar map" if="$(eval used_lidar == 'fsai')" />
+
+        <param name="/use_sim_time" value="true"/>
+    </group>
+
+</launch>

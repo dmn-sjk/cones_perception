@@ -1,0 +1,3 @@
+sensor_msgs/PointCloud2 single_cone_cloud
+---
+uint8 color

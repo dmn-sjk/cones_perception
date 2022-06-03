@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    
+    <arg name="used_lidar" default="our" /> <!-- options: our, fsai, simulation -->
+    
+    <arg name="simulation_lidar_topic" default="/fsds/lidar/Lidar" />
+    <arg name="fsai_lidar_topic" default="/velodyne_points" />
+    <arg name="output_cloud_topic" default="groundless_cloud" />
+    <arg name="default_input_cloud_topic" default="/cloud" />
+
+    <group if="$(eval used_lidar == 'our')">
+        <node pkg="cones_perception" type="ground_removal" name="ground_removal" output="screen">
+            <param name="output_cloud_topic" type="str" value="$(arg output_cloud_topic)"/>
+            <rosparam file="$(find cones_perception)/config/ground_removal_params.yaml" command="load" />
+        </node>
+    </group>
+
+    <group if="$(eval used_lidar == 'fsai')">
+        <node pkg="cones_perception" type="ground_removal" name="ground_removal" output="screen">
+            <remap from="$(arg default_input_cloud_topic)" to="$(arg fsai_lidar_topic)"/>
+            <param name="output_cloud_topic" type="str" value="$(arg output_cloud_topic)"/>
+            <rosparam file="$(find cones_perception)/config/ground_removal_params.yaml" command="load" />
+        </node>
+    </group>
+
+    <group if="$(eval used_lidar == 'simulation')">
+        <node pkg="cones_perception" type="ground_removal" name="ground_removal" output="screen">
+            <remap from="$(arg default_input_cloud_topic)" to="$(arg simulation_lidar_topic)"/>
+            <param name="output_cloud_topic" type="str" value="$(arg output_cloud_topic)"/>
+            <rosparam file="$(find cones_perception)/config/ground_removal_params.yaml" command="load" />
+        </node>
+    </group>
+
+</launch>

@@ -1,0 +1,11 @@
+cones_matching_dist_theshold: 0.5
+cone_position_extension_length: 0.05
+distance_treshold_max: 10.0
+distance_treshold_min: 1.0
+level_threshold: -5.0
+angle_threshold: 160.0
+min_cluster_size: 2
+max_cluster_size: 500
+voxel_filter_leaf_size_x: 0.04
+voxel_filter_leaf_size_y: 0.04
+voxel_filter_leaf_size_z: 0.04
