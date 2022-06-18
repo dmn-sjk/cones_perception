@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import print_function
-
 from cones_perception.srv import ClassifyColorSrv, ClassifyColorSrvResponse
 # import pcl
 from sensor_msgs.msg import PointCloud2
@@ -40,60 +38,65 @@ data_collection = False
 
 class ColorClassifier:
     def __init__(self):
-        self.srv = rospy.Service('color_classifier', ClassifyColorSrv, self.handle_classify_color)
+        rospy.init_node('color_classifier_server')
+        model_path = rospy.get_param("~model_path", None)
+
+        if model_path is None:
+            raise ValueError("Specify path to the model!")
+
+        self.model = tf.keras.models.load_model(model_path)
 
         self.df = pd.DataFrame({'x':[], 'y':[], 'z':[], 'intensity':[],'color':[]})
-
-        self.model = tf.keras.models.load_model('/home/damian/.workspaces_ros/PUTM_DV_Perception_2020/perception_catkin/src/cones_perception/models/dam_net')
-
         self.colors = [None, 'yellow', 'blue', 'orange']
 
+        self.srv = rospy.Service('color_classifier', ClassifyColorSrv, self.handle_classify_color)
+
     def handle_classify_color(self, req):
+        colors = []
+        for cone in req.cones_clouds:
+            cone_cloud = list(pc2.read_points(cone))
 
-        cones_cloud = list(pc2.read_points(req.single_cone_cloud))
+            if len(cone_cloud) == 0:
+                continue
 
-        if len(cones_cloud) == 0:
-            return ClassifyColorSrvResponse(self.colors[0])
+            row = {'x':[], 'y':[], 'z':[], 'intensity':[],'color':0}
+            for p in cone_cloud:
+                row['x'].append(p[0])
+                row['y'].append(p[1])
+                row['z'].append(p[2])
+                row['intensity'].append(p[3])
+            
+            # -- DATA COLLECTION -------------------------
 
-        row = {'x':[], 'y':[], 'z':[], 'intensity':[],'color':0}
-        for p in cones_cloud:
-            row['x'].append(p[0])
-            row['y'].append(p[1])
-            row['z'].append(p[2])
-            row['intensity'].append(p[3])
-        
-        # -- DATA COLLECTION -------------------------
+            if data_collection:
 
-        if data_collection:
+                color = int(input("Choose color (0 - not sure, 1 - yellow, 2 - blue, 3 - orange):\n"))
 
-            color = int(input("Choose color (0 - not sure, 1 - yellow, 2 - blue, 3 - orange):\n"))
+                if not color == 0:
+                    row['color'] = color
 
-            if not color == 0:
-                row['color'] = color
+                    self.df = self.df.append(row, ignore_index=True)
 
-                self.df = self.df.append(row, ignore_index=True)
+                    self.df.to_pickle('src/cones_perception/cones_clouds/cones.pkl')
 
-                self.df.to_pickle('src/cones_perception/cones_clouds/cones.pkl')
+            # -- END DATA COLLECTION -------------------------
 
-        # -- END DATA COLLECTION -------------------------
+            else:            
+                image = self.to_image(row)
 
-        else:            
-            image = self.to_image(row)
+                pred = self.model.predict(image[np.newaxis, ...])
 
-            pred = self.model.predict(image[np.newaxis, ...])
+                if np.max(pred) >= 0.8:
+                    colors.append(np.argmax(pred) + 1)
+                else:
+                    # unknown
+                    colors.append(0)
 
-            if np.max(pred) >= 0.8:
-                color = np.argmax(pred) + 1
-            else:
-                # unknown
-                color = 0
+                rospy.loginfo("Classified: %s"%(self.colors[colors[-1]]))
 
-        rospy.loginfo("Returning: %s"%(self.colors[color]))
-
-        return ClassifyColorSrvResponse(color)
+        return ClassifyColorSrvResponse(colors)
 
     def run_server(self):
-        rospy.init_node('classify_color_server')
         rospy.loginfo("Ready to classify color.")
         rospy.spin()
 

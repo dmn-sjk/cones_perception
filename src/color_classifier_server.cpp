@@ -1,5 +1,5 @@
 #include "ros/ros.h"
-#include <perception_handling/color_classifier.hpp>
+#include <perception_handling/color.hpp>
 #include "cones_perception/ClassifyColorSrv.h"
 
 bool ClassifyColor(cones_perception::ClassifyColorSrv::Request &req,
@@ -9,11 +9,11 @@ bool ClassifyColor(cones_perception::ClassifyColorSrv::Request &req,
 
     // TODO: color classification
 
-    color = perception_handling::Color::kYellow;
+    // color = perception_handling::Color::kYellow;
 
-    res.color = static_cast<uint8_t>(color);
+    // res.colors = std::vector<perception_handling::Color>(color);
 
-    ROS_INFO("Classified color: %i", res.color);
+    // ROS_INFO("Classified color: %i", res.colors);
 
     return true;
 }

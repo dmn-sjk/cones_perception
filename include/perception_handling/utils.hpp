@@ -7,6 +7,11 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/TransformStamped.h>
 #include "sensor_msgs/PointCloud2.h"
+#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
+
+typedef pcl::PointXYZI Point;
+typedef pcl::PointCloud<Point> PointCloud;
 
 namespace perception_handling {
 
