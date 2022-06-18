@@ -48,15 +48,15 @@ public:
 	}
 
 	void cloud_handler(const sensor_msgs::PointCloud2ConstPtr &cloud_msg){
-		pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud(new pcl::PointCloud <pcl::PointXYZI>);
-        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
+		PointCloud::Ptr input_cloud(new PointCloud);
+        PointCloud::Ptr cloud_filtered(new PointCloud);
 
         pcl::fromROSMsg(*cloud_msg, *input_cloud);
 
 		int cloud_size = input_cloud->points.size();
 		
 		std::vector<float> sectors_lowest_points(num_of_sectors, default_lowest_point);
-		for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = input_cloud->points.begin(); 
+		for (std::vector<Point, Eigen::aligned_allocator<Point>>::const_iterator it = input_cloud->points.begin(); 
 					it != input_cloud->points.end(); it++) {
 			float atan_angle = atan2(it->y, it->x);
 			float angle = (atan_angle < 0) ? atan_angle += 2 * M_PI : atan_angle;
@@ -68,7 +68,7 @@ public:
 		}
 
 		input_cloud->points.erase(std::remove_if(input_cloud->points.begin(), input_cloud->points.end(),
-										   [&](pcl::PointXYZI p) {
+										   [&](Point p) {
 												float atan_angle = atan2(p.y, p.x);
 												float angle = (atan_angle < 0) ? atan_angle += 2 * M_PI : atan_angle;
 												int sector = floor(angle / sector_angle_rad);

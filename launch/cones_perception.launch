@@ -38,7 +38,9 @@
 
         <!-- color classifier -->
         <group if="$(eval classify_colors == true and used_lidar != 'simulation')">
-            <node pkg="cones_perception" type="color_classifier_server.py" name="color_classifier_server" output="screen" />
+            <node pkg="cones_perception" type="color_classifier_server.py" name="color_classifier_server" output="screen" >
+                <param name="model_path" type="str" value="$(find cones_perception)/models/dam_net"/>
+            </node>
         </group>
 
         <!-- Rviz -->

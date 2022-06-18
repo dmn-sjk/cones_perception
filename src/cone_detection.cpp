@@ -52,12 +52,10 @@ private:
 	ros::ServiceClient color_srv_client;
 
 	cones_perception::ClassifyColorSrv color_srv;
-	std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr, 
-			    Eigen::aligned_allocator<pcl::PointCloud <pcl::PointXYZI>::Ptr>> prev_centroid_clouds = 
-			    std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr, 
-				Eigen::aligned_allocator<pcl::PointCloud <pcl::PointXYZI>::Ptr>>(perception_handling::kNumberOfColors);
+	std::vector<PointCloud::Ptr, Eigen::aligned_allocator<PointCloud::Ptr>> prev_centroid_clouds = 
+			    std::vector<PointCloud::Ptr, Eigen::aligned_allocator<PointCloud::Ptr>>(perception_handling::kNumberOfColors);
 
-	pcl::PointCloud<pcl::PointXYZI>::Ptr prev_detected_cones;
+	PointCloud::Ptr prev_detected_cones;
 
 public:
 	ConeDetector(): nh() {
@@ -133,9 +131,9 @@ public:
 			intensity_in_cloud_checked = true;
 		}
 
-        pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud(new pcl::PointCloud <pcl::PointXYZI>);
-		pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud_copy(new pcl::PointCloud <pcl::PointXYZI>);
-        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
+        PointCloud::Ptr input_cloud(new PointCloud);
+		PointCloud::Ptr input_cloud_copy(new PointCloud);
+    	PointCloud::Ptr cloud_filtered(new PointCloud);
 
 		if (!intensity_in_cloud) {
 			/* to silence the warnings */
@@ -164,9 +162,9 @@ public:
   		std::vector<pcl::PointIndices> cluster_indices;
 		cluster_indices = euclidan_cluster(cloud_filtered);
 
-		std::vector<pcl::PointCloud<pcl::PointXYZI>::Ptr, Eigen::aligned_allocator <pcl::PointCloud <pcl::PointXYZI>::Ptr>> centroid_clouds;
+		std::vector<PointCloud::Ptr, Eigen::aligned_allocator <PointCloud::Ptr>> centroid_clouds;
 		for (int i = 0; i < perception_handling::kNumberOfColors; i++) {
-			pcl::PointCloud<pcl::PointXYZI>::Ptr single_cloud(new pcl::PointCloud <pcl::PointXYZI>);
+			PointCloud::Ptr single_cloud(new PointCloud);
 			centroid_clouds.push_back(single_cloud);
 		}
 		
@@ -184,10 +182,10 @@ public:
 		}
 	}
 
-	void filter_points_position(pcl::PointCloud<pcl::PointXYZI>::Ptr &cloud)
+	void filter_points_position(PointCloud::Ptr &cloud)
 	{
 		cloud->points.erase(std::remove_if(cloud->points.begin(), cloud->points.end(),
-										   [&](pcl::PointXYZI p)
+										   [&](Point p)
 										   {
 											   // level
 											   return p.z < level_threshold or
@@ -201,12 +199,12 @@ public:
 							cloud->points.end());
 	}
 
-	std::vector<pcl::PointIndices> euclidan_cluster(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud){
-		pcl::search::KdTree<pcl::PointXYZI>::Ptr kdtree (new pcl::search::KdTree<pcl::PointXYZI>);
+	std::vector<pcl::PointIndices> euclidan_cluster(const PointCloud::ConstPtr &cloud){
+		pcl::search::KdTree<Point>::Ptr kdtree (new pcl::search::KdTree<Point>);
   		kdtree->setInputCloud (cloud);
 
         std::vector<pcl::PointIndices> cluster_indices;
-	  	pcl::EuclideanClusterExtraction<pcl::PointXYZI> ec;
+	  	pcl::EuclideanClusterExtraction<Point> ec;
 		ec.setClusterTolerance(sqrt(pow(CONE_HEIGHT, 2) + pow(CONE_WIDTH, 2)));
 		ec.setMinClusterSize(min_cluster_size);
 		ec.setMaxClusterSize(max_cluster_size);
@@ -217,11 +215,11 @@ public:
 		return cluster_indices;
     }
 
-	pcl::PointCloud<pcl::PointXYZI>::Ptr get_reconstructed_cone(const pcl::PointXYZI cone_center, const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud){
-        pcl::PointCloud<pcl::PointXYZI>::Ptr reconstructed_cone(new pcl::PointCloud <pcl::PointXYZI>);
-		pcl::PointXYZI p;
+	PointCloud::Ptr get_reconstructed_cone(const Point cone_center, const PointCloud::ConstPtr &cloud){
+        PointCloud::Ptr reconstructed_cone(new PointCloud);
+		Point p;
 
-		for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it = cloud->points.begin(); it != cloud->points.end(); it++) {
+		for (std::vector<Point, Eigen::aligned_allocator<Point>>::const_iterator it = cloud->points.begin(); it != cloud->points.end(); it++) {
 			if ((cone_center.x + (CONE_WIDTH / 1.5) >= it->x && cone_center.x - (CONE_WIDTH / 1.5) <= it->x) &&
 				(cone_center.y + (CONE_WIDTH / 1.5) >= it->y && cone_center.y - (CONE_WIDTH / 1.5) <= it->y)) {
 					p.x = it->x;
@@ -235,9 +233,9 @@ public:
         return reconstructed_cone;
     }
 
-	pcl::PointCloud<pcl::PointXYZI>::Ptr downsample(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &cloud){
-        pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud <pcl::PointXYZI>);
-        pcl::VoxelGrid<pcl::PointXYZI> vg;
+	PointCloud::Ptr downsample(const PointCloud::ConstPtr &cloud){
+        PointCloud::Ptr cloud_filtered(new PointCloud);
+        pcl::VoxelGrid<Point> vg;
         vg.setInputCloud(cloud);
         // vg.setLeafSize(0.04f, 0.04f, 0.05f);
 		vg.setLeafSize(voxel_filter_leaf_size_x, voxel_filter_leaf_size_y, voxel_filter_leaf_size_z);
@@ -246,16 +244,18 @@ public:
         return cloud_filtered;
     }
 
-	void get_centroid_clouds(const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &whole_cloud,
-															const pcl::PointCloud<pcl::PointXYZI>::ConstPtr &filtered_cloud,
-															std::vector<pcl::PointIndices> cluster_indices,
-															std::vector<pcl::shared_ptr<pcl::PointCloud<pcl::PointXYZI>>, Eigen::aligned_allocator<pcl::shared_ptr<pcl::PointCloud<pcl::PointXYZI>>>> centroid_clouds) {
-		pcl::PointCloud<pcl::PointXYZI>::Ptr single_cone_cloud_reconstruct (new pcl::PointCloud<pcl::PointXYZI>);
-		pcl::PointCloud<pcl::PointXYZI>::Ptr currently_detected_cones (new pcl::PointCloud<pcl::PointXYZI>);
+	void get_centroid_clouds(const PointCloud::ConstPtr &whole_cloud,
+							 const PointCloud::ConstPtr &filtered_cloud,
+							std::vector<pcl::PointIndices> cluster_indices,
+							std::vector<pcl::shared_ptr<PointCloud>, Eigen::aligned_allocator<pcl::shared_ptr<PointCloud>>> centroid_clouds) {
+		PointCloud::Ptr single_cone_cloud_reconstruct (new PointCloud);
+		PointCloud::Ptr currently_detected_cones (new PointCloud);
 
-        for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
-		{
-			pcl::PointXYZI p;
+		std::vector<PointCloud::Ptr, Eigen::aligned_allocator <PointCloud::Ptr>>  cones_clouds_for_color_classification;
+		std::vector<Point> centroid_cloud_for_color_classification;
+
+        for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it) {
+			Point p;
 			int j = 0;
 			float x, y = 0.0;
 			for (const auto& idx : it->indices){
@@ -268,7 +268,7 @@ public:
 			p.y = y / j;
 			p.z = 0.0;
 
-			// move centroid further back, closer to the middle of cone
+			// move centroid further back, closer to the middle of the cone
 			float vector_len = perception_handling::euclidan_dist(p.x, p.y, p.z, 0, 0, 0);
 			p.x = p.x + p.x / vector_len * cone_position_extension_length;
 			p.y = p.y + p.y / vector_len * cone_position_extension_length;
@@ -276,8 +276,8 @@ public:
 			currently_detected_cones->push_back(p);
 
 			if (prev_detected_cones != NULL) {
-				for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it_prev_cones = prev_detected_cones->points.begin(); 
-					it_prev_cones != prev_detected_cones->points.end(); it_prev_cones++) {
+				for (std::vector<Point, Eigen::aligned_allocator<Point>>::const_iterator it_prev_cones = prev_detected_cones->points.begin(); 
+					it_prev_cones != prev_detected_cones->points.end(); ++it_prev_cones) {
 					// if points buffer is not used or cone was detected in previous loop (then publish)
 					if (!use_points_buffer || perception_handling::euclidan_dist(p.x, p.y, p.z, it_prev_cones->x, it_prev_cones->y, it_prev_cones->z) < cones_matching_dist_theshold) {
 						if (classify_colors) {
@@ -287,8 +287,8 @@ public:
 							for (int i = perception_handling::kUnknownColor + 1; i < perception_handling::kNumberOfColors; i++) {
 								if (prev_centroid_clouds[i] != NULL) {
 									// check if detected cone was detected in previous loop and color was classified
-									for (std::vector<pcl::PointXYZI, Eigen::aligned_allocator<pcl::PointXYZI>>::const_iterator it_colored_cones = prev_centroid_clouds[i]->points.begin(); 
-										it_colored_cones != prev_centroid_clouds[i]->points.end(); it_colored_cones++) {
+									for (std::vector<Point, Eigen::aligned_allocator<Point>>::const_iterator it_colored_cones = prev_centroid_clouds[i]->points.begin(); 
+										it_colored_cones != prev_centroid_clouds[i]->points.end(); ++it_colored_cones) {
 										if ((perception_handling::euclidan_dist(p.x, p.y, p.z, it_colored_cones->x, it_colored_cones->y, it_colored_cones->z) < cones_matching_dist_theshold)) {
 											// color already classified earlier
 											need_color = false;
@@ -303,10 +303,9 @@ public:
 							}
 							
 							if (need_color) {
-								/* color classification */
 								single_cone_cloud_reconstruct = get_reconstructed_cone(p, whole_cloud);
-								perception_handling::Color color = get_color(single_cone_cloud_reconstruct);
-								centroid_clouds[color]->push_back(p);
+								cones_clouds_for_color_classification.push_back(single_cone_cloud_reconstruct);
+								centroid_cloud_for_color_classification.push_back(p);
 							}
 						} else {
 							centroid_clouds[perception_handling::kUnknownColor]->push_back(p);
@@ -320,6 +319,15 @@ public:
 			y = 0.0;
 		}
 
+		if (classify_colors) {
+			/* color classification */
+			std::vector<perception_handling::Color> colors(cones_clouds_for_color_classification.size(), perception_handling::kUnknownColor);
+			get_colors(cones_clouds_for_color_classification, colors);
+			for (int i = 0; i < cones_clouds_for_color_classification.size(); i++) {
+				centroid_clouds[colors[i]]->push_back(centroid_cloud_for_color_classification[i]);
+			}
+		}
+
 		for (int i = 0; i < perception_handling::kNumberOfColors; i++) {
 			prev_centroid_clouds[i] = centroid_clouds[i];
 		}
@@ -327,25 +335,26 @@ public:
 		prev_detected_cones = currently_detected_cones;
 	}
 
-	perception_handling::Color get_color(pcl::PointCloud<pcl::PointXYZI>::Ptr &single_cone_cloud) {
-		perception_handling::Color color;
-		sensor_msgs::PointCloud2 single_cone_msg;
+	void get_colors(const std::vector<PointCloud::Ptr, Eigen::aligned_allocator <PointCloud::Ptr>> &cones_clouds,
+					std::vector<perception_handling::Color> &colors_output) {
 
-        pcl::toROSMsg(*single_cone_cloud, single_cone_msg);
+		std::vector<sensor_msgs::PointCloud2> cones_msg;
 
-		single_cone_msg.header.frame_id = cones_frame_id;
-
-		color_srv.request.single_cone_cloud = single_cone_msg;
-		
-		if (color_srv_client.call(color_srv)) {
-			color = static_cast<perception_handling::Color>(color_srv.response.color);
-		} else {
-			// unknown
-			color = static_cast<perception_handling::Color>(0);
-			ROS_ERROR("Failed to call service");
+		for (std::vector<PointCloud::Ptr, Eigen::aligned_allocator <PointCloud::Ptr>>::const_iterator it = cones_clouds.begin(); 
+				it != cones_clouds.end(); ++it) {
+			sensor_msgs::PointCloud2 single_cone_msg;
+			pcl::toROSMsg(**it, single_cone_msg);
+			single_cone_msg.header.frame_id = cones_frame_id;
+			cones_msg.push_back(single_cone_msg);
 		}
 
-		return color;
+		color_srv.request.cones_clouds = cones_msg;
+		if (color_srv_client.call(color_srv)) {
+			std::transform(color_srv.response.colors.begin(), color_srv.response.colors.end(), colors_output.begin(), 
+						   [](const uint8_t i) {return static_cast<perception_handling::Color>(i);});
+		} else {
+			ROS_ERROR("Failed to call service");
+		}
 	}
 };
 
