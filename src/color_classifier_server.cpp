@@ -1,5 +1,5 @@
 #include "ros/ros.h"
-#include <perception_handling/color_classifier.hpp>
+#include <perception_handling/color.hpp>
 #include "cones_perception/ClassifyColorSrv.h"
 
 bool ClassifyColor(cones_perception::ClassifyColorSrv::Request &req,

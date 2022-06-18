@@ -8,9 +8,13 @@
 #include <pcl/search/kdtree.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <perception_handling/utils.hpp>
-#include <perception_handling/color_classifier.hpp>
+#include <perception_handling/color.hpp>
 #include "cones_perception/ClassifyColorSrv.h"
 
+
+static perception_handling::Color to_color(const uint8_t i) {
+	return static_cast<perception_handling::Color>(i);
+}
 
 class ConeDetector{
 private:
@@ -351,7 +355,8 @@ public:
 		color_srv.request.cones_clouds = cones_msg;
 		if (color_srv_client.call(color_srv)) {
 			std::transform(color_srv.response.colors.begin(), color_srv.response.colors.end(), colors_output.begin(), 
-						   [](const uint8_t i) {return static_cast<perception_handling::Color>(i);});
+						   to_color);
+				
 		} else {
 			ROS_ERROR("Failed to call service");
 		}

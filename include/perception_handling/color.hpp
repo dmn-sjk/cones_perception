@@ -1,5 +1,7 @@
-#ifndef COLOR_CLASSIFIER_HPP
-#define COLOR_CLASSIFIER_HPP
+#ifndef COLOR_HPP
+#define COLOR_HPP
+
+#include "stdint.h"
 
 namespace perception_handling {
 
@@ -12,8 +14,6 @@ namespace perception_handling {
         kNumberOfColors
     } Color;
 
-
-
 } // namespace perception_handling
 
-#endif  // COLOR_CLASSIFIER_HPP
+#endif  // COLOR_HPP

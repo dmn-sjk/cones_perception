@@ -1,5 +1,4 @@
 #include <Eigen/Dense>
-
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Pose.h>
