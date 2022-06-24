@@ -10,6 +10,8 @@ import pandas as pd
 import tensorflow as tf
 import numpy as np
 from scipy.interpolate import interp1d
+import pathlib
+import os
 
 
 # specified FoV in cone detection (h angles IMPORTANT to match the one in cone_detection.cpp (h_angles = 1/2 * angle threshold in cone detection))
@@ -40,11 +42,33 @@ class ColorClassifier:
     def __init__(self):
         rospy.init_node('color_classifier_server')
         model_path = rospy.get_param("~model_path", None)
+        is_model_tf_lite = rospy.get_param("~is_model_tf_lite", True)
 
         if model_path is None:
             raise ValueError("Specify path to the model!")
 
-        self.model = tf.keras.models.load_model(model_path)
+        if not is_model_tf_lite:
+            # convert to tf lite
+            model = tf.keras.models.load_model(model_path)
+            converter = tf.lite.TFLiteConverter.from_keras_model(model)
+            tflite_model = converter.convert()
+
+            tf_lite_model_path = '/tmp/color_classifier_tflite_model/'
+            tf_lite_model_name = 'color_classifier_model.tflite'
+
+            tflite_models_dir = pathlib.Path(tf_lite_model_path)
+            tflite_models_dir.mkdir(exist_ok=True, parents=True)
+
+            tflite_model_file = tflite_models_dir/tf_lite_model_name
+            tflite_model_file.write_bytes(tflite_model)
+
+            model_path =  os.path.join(tf_lite_model_path, tf_lite_model_name)
+
+        self.interpreter = tf.lite.Interpreter(model_path)
+        self.interpreter.allocate_tensors()
+
+        self.model_input_index = self.interpreter.get_input_details()[0]["index"]
+        self.model_output_index = self.interpreter.get_output_details()[0]["index"]
 
         self.df = pd.DataFrame({'x':[], 'y':[], 'z':[], 'intensity':[],'color':[]})
         self.colors = [None, 'yellow', 'blue', 'orange']
@@ -84,7 +108,10 @@ class ColorClassifier:
             else:            
                 image = self.to_image(row)
 
-                pred = self.model.predict(image[np.newaxis, ...])
+                image = tf.constant(image[np.newaxis, ...], dtype=tf.float32)
+                self.interpreter.set_tensor(self.model_input_index, image)
+                self.interpreter.invoke()
+                pred = self.interpreter.get_tensor(self.model_output_index)
 
                 if np.max(pred) >= 0.8:
                     colors.append(np.argmax(pred) + 1)
