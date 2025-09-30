@@ -16,7 +16,7 @@ A ROS package for detecting and classifying traffic cones in LiDAR point cloud d
 
 ## 📋 Requirements
 
-- ROS (Robot Operating System)
+- ROS (Robot Operating System) (tested on Noetic)
 - PCL (Point Cloud Library)
 - sensor_msgs
 - tf
